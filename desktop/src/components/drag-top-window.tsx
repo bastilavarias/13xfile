@@ -9,9 +9,9 @@ interface DragWindowRegionProps {
   title?: ReactNode;
 }
 
-export default function DragWindowRegion({ title }: DragWindowRegionProps) {
+export default function DragTopWindow({ title }: DragWindowRegionProps) {
   return (
-    <div className="flex w-screen items-stretch justify-between">
+    <div className="flex w-screen items-stretch justify-between border-none">
       <div className="draglayer w-full">
         {title && (
           <div className="flex flex-1 p-2 text-xs whitespace-nowrap text-gray-400 select-none">

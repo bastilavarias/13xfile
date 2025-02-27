@@ -18,7 +18,7 @@ import {
 
 export default function Navbar() {
   return (
-    <Menubar className="rounded-none border-b border-none px-2 lg:px-4">
+    <Menubar className="rounded-none border-t-0 shadow-none">
       <MenubarMenu>
         <MenubarTrigger className="font-bold">13xFile</MenubarTrigger>
         <MenubarContent>
