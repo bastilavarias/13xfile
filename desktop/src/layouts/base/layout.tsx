@@ -35,7 +35,7 @@ export default function BaseLayout({
               sizes,
             )}`;
           }}
-          className="h-full max-h-[800px] items-stretch"
+          className="h-full items-stretch"
         >
           <ResizablePanel
             defaultSize={defaultLayout[0]}
@@ -106,7 +106,7 @@ export default function BaseLayout({
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={defaultLayout[1]} minSize={30}>
-            <main className="h-screen overflow-y-auto">{children}</main>
+            <main className="h-screen overflow-y-auto pb-20">{children}</main>
           </ResizablePanel>
         </ResizablePanelGroup>
       </TooltipProvider>
