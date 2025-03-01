@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import BaseLayout from "@/layouts/base/layout";
-import { Server } from "lucide-react";
+import { LoaderCircle, Server } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import FilePreviewCard from "@/components/file-preview-card";
 import FileTable from "@/components/file-table";
 import CustomToolbar from "@/components/custom-toolbar";
 import { CARD_VIEW_MODE, SORT_DESC } from "@/constants";
+import { Button } from "@/components/ui/button";
 
 export default function HostedFilePage() {
   const [viewMode, setViewMode] = useState(CARD_VIEW_MODE);
@@ -20,7 +21,7 @@ export default function HostedFilePage() {
     },
     {
       name: "data-webtech.pdf",
-      type: "pdf",
+      type: "document",
       size: "175 MB",
       visibility: "public",
     },
@@ -32,7 +33,7 @@ export default function HostedFilePage() {
     },
     {
       name: "valorant.apk",
-      type: "code",
+      type: "applications",
       size: "105.7 MB",
       visibility: "public",
     },
@@ -50,7 +51,7 @@ export default function HostedFilePage() {
     },
     {
       name: "football-game.apk",
-      type: "code",
+      type: "applications",
       size: "205.9 MB",
       visibility: "private",
     },
@@ -62,7 +63,7 @@ export default function HostedFilePage() {
     },
     {
       name: "project-plan.pdf",
-      type: "pdf",
+      type: "document",
       size: "2.1 MB",
       visibility: "private",
     },
@@ -82,19 +83,20 @@ export default function HostedFilePage() {
             <Server strokeWidth={2.5} />
             Hosted File
           </h2>
-          <span>Node Status</span>
         </div>
-        <section className="space-y-10">
+        <section className="space-y-3">
           <CustomToolbar
             viewMode={viewMode}
             setViewMode={setViewMode}
             sort={sort}
             setSort={setSort}
+            extension={UsageStatusExtension()}
+            hasButtons={true}
           />
 
           {/* Overview Section */}
           <div className="space-y-3">
-            <p className="text-sm font-semibold">Your Files</p>
+            <p className="text-sm font-semibold">All hosted files</p>
 
             {viewMode === CARD_VIEW_MODE ? (
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
@@ -104,7 +106,6 @@ export default function HostedFilePage() {
                     name={file.name}
                     type={file.type}
                     size={file.size}
-                    auth={true}
                     visibility={file.visibility}
                   />
                 ))}
@@ -120,5 +121,24 @@ export default function HostedFilePage() {
         </section>
       </div>
     </BaseLayout>
+  );
+}
+
+function UsageStatusExtension() {
+  return (
+    <div className="flex items-center gap-1">
+      <small className="text-muted-foreground flex items-center gap-1">
+        <span className="flex items-center gap-1">
+          Status:
+          <span className="flex h-2 w-2 items-center justify-center rounded-full bg-green-500"></span>
+          <span className="font-semibold">Active</span>
+        </span>
+        <span>
+          | File(s) Uploaded:
+          <span className="font-semibold"> 7 GB</span>
+        </span>
+        <span className="cursor-pointer underline">See advance usage</span>
+      </small>
+    </div>
   );
 }

@@ -9,14 +9,20 @@ import {
   TABLE_VIEW_MODE,
 } from "@/constants";
 import {
+  Archive,
   File,
+  FileText,
+  FileType,
   Folder,
+  Music,
+  Package,
   Rows2,
   Search,
   SortAsc,
   SortDesc,
   Table2,
   Upload,
+  Video,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -51,6 +57,8 @@ interface CustomToolbarProps {
   setViewMode: (mode: string) => void;
   sort: string;
   setSort: (sort: string) => void;
+  extension?: React.ReactNode;
+  hasButtons?: boolean;
 }
 
 const FormSchema = z.object({
@@ -64,6 +72,8 @@ export default function CustomToolbar({
   setViewMode,
   sort,
   setSort,
+  extension = null,
+  hasButtons,
 }: CustomToolbarProps) {
   return (
     <>
@@ -88,48 +98,84 @@ export default function CustomToolbar({
           </div>
         </div>
       </Card>
-      <div className="flex flex-wrap justify-between gap-2">
-        <div className="flex-1" />
-        <div className="flex gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <div>
-                <AppTooltip label="View mode">
-                  <Button variant="outline" size="icon">
-                    {viewMode === CARD_VIEW_MODE ? <Rows2 /> : <Table2 />}
-                  </Button>
-                </AppTooltip>
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setViewMode(CARD_VIEW_MODE)}>
-                <Rows2 /> Card
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setViewMode(TABLE_VIEW_MODE)}>
-                <Table2 /> Table
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <div>
-                <AppTooltip label="Change order">
-                  <Button variant="outline" size="icon">
-                    {sort === SORT_ASC ? <SortAsc /> : <SortDesc />}
-                  </Button>
-                </AppTooltip>
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setSort(SORT_ASC)}>
-                <SortAsc /> Ascending
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSort(SORT_DESC)}>
-                <SortDesc /> Descending
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-1">
+        {extension ? extension : <div className="flex-1" />}
+        {hasButtons && (
+          <div className="flex gap-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <div>
+                  <AppTooltip label="View mode">
+                    <Button variant="outline" size="icon">
+                      <FileType />
+                    </Button>
+                  </AppTooltip>
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem>
+                  <FileText />
+                  Document
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Video />
+                  Video
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Music />
+                  Music
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Package />
+                  Applications
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Archive />
+                  Archives
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <div>
+                  <AppTooltip label="View mode">
+                    <Button variant="outline" size="icon">
+                      {viewMode === CARD_VIEW_MODE ? <Rows2 /> : <Table2 />}
+                    </Button>
+                  </AppTooltip>
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setViewMode(CARD_VIEW_MODE)}>
+                  <Rows2 /> Card
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setViewMode(TABLE_VIEW_MODE)}>
+                  <Table2 /> Table
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <div>
+                  <AppTooltip label="Change order">
+                    <Button variant="outline" size="icon">
+                      {sort === SORT_ASC ? <SortAsc /> : <SortDesc />}
+                    </Button>
+                  </AppTooltip>
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setSort(SORT_ASC)}>
+                  <SortAsc /> Ascending
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSort(SORT_DESC)}>
+                  <SortDesc /> Descending
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
     </>
   );

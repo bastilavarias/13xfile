@@ -1,14 +1,6 @@
-import React, { type ReactNode } from "react";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import {
-  Code,
-  File,
-  FileAudio,
-  FileText,
-  FileVideo,
-  ImageIcon,
-  MoreVertical,
-} from "lucide-react";
+import React from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,23 +11,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/tailwind";
 import { Badge } from "@/components/ui/badge";
+import { getFileType } from "@/helpers/file-helpers";
+import { FileType } from "@/types/color";
 
 interface FilePreviewCardProps {
-  type: string;
+  type: FileType;
   name: string;
   size: string;
   visibility?: string;
 }
-
-const fileTypeColorMap = {
-  image: "red",
-  document: "green",
-  pdf: "green",
-  code: "green",
-  video: "green",
-  audio: "green",
-  default: "green",
-} as const;
 
 export default function FilePreviewCard({
   type = "default",
@@ -43,20 +27,25 @@ export default function FilePreviewCard({
   size,
   visibility,
 }: FilePreviewCardProps) {
-  // @ts-ignore
-  const color = fileTypeColorMap[type];
+  const foundFileType = getFileType(type);
 
   return (
     <Card>
       <CardContent className="px-3">
         <div className="flex items-start justify-between">
           <div
+            style={{
+              backgroundColor: foundFileType.bgColor,
+            }}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-md",
-              `bg-${color}-100`,
+              `bg-[${foundFileType.bgColor}]`,
             )}
           >
-            <FileIcon type={type} />
+            <foundFileType.icon
+              className="h-5 w-5"
+              color={foundFileType.color}
+            />
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -90,31 +79,3 @@ export default function FilePreviewCard({
     </Card>
   );
 }
-
-type FileType = keyof typeof fileTypeColorMap;
-
-interface FileIconProps {
-  type: FileType;
-}
-const FileIcon: React.FC<FileIconProps> = ({ type }) => {
-  // Get the color based on the file type
-  const color = fileTypeColorMap[type] || fileTypeColorMap.default;
-  const iconProps = { className: `h-5 w-5 text-${color}-500` };
-
-  switch (type) {
-    case "image":
-      return <ImageIcon {...iconProps} />;
-    case "document":
-      return <FileText {...iconProps} />;
-    case "pdf":
-      return <File {...iconProps} />;
-    case "code":
-      return <Code {...iconProps} />;
-    case "audio":
-      return <FileAudio {...iconProps} />;
-    case "video":
-      return <FileVideo {...iconProps} />;
-    default:
-      return <File {...iconProps} />; // Default icon for unknown file types
-  }
-};

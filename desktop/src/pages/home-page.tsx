@@ -5,9 +5,12 @@ import { Library, Heart, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import FilePreviewCard from "@/components/file-preview-card";
 import FileTable from "@/components/file-table";
+import CustomToolbar from "@/components/custom-toolbar";
+import { CARD_VIEW_MODE, SORT_DESC } from "@/constants";
 
 export default function HomePage() {
-  const [viewMode, setViewMode] = useState("card");
+  const [viewMode, setViewMode] = useState(CARD_VIEW_MODE);
+  const [sort, setSort] = useState(SORT_DESC);
 
   const files = [
     { name: "good-memories.png", type: "image" as const, size: "15.7 MB" },
@@ -54,11 +57,17 @@ export default function HomePage() {
             </TabsList>
           </Tabs>
         </div>
-        <section className="space-y-10">
+        <section className="space-y-3">
+          <CustomToolbar
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            sort={sort}
+            setSort={setSort}
+          />
           <div className="space-y-3">
             <p className="text-sm font-semibold">From the Community</p>
 
-            {viewMode === "card" ? (
+            {viewMode === CARD_VIEW_MODE ? (
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {files.map((file, index) => (
                   <FilePreviewCard
