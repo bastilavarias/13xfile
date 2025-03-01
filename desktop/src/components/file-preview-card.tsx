@@ -1,5 +1,5 @@
 import React, { type ReactNode } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
   Code,
   File,
@@ -18,28 +18,32 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/tailwind";
+import { Badge } from "@/components/ui/badge";
 
 interface FilePreviewCardProps {
   type: string;
   name: string;
   size: string;
+  visibility?: string;
 }
 
 const fileTypeColorMap = {
   image: "red",
-  document: "blue",
+  document: "green",
   pdf: "green",
-  code: "purple",
+  code: "green",
   video: "green",
   audio: "green",
-  default: "gray",
+  default: "green",
 } as const;
 
 export default function FilePreviewCard({
   type = "default",
   name,
   size,
+  visibility,
 }: FilePreviewCardProps) {
+  // @ts-ignore
   const color = fileTypeColorMap[type];
 
   return (
@@ -71,10 +75,17 @@ export default function FilePreviewCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <h3 className="mt-3 truncate text-sm font-medium">{name}</h3>
-        <p className="text-muted-foreground truncate text-xs">
-          {size} | Nov 12 2023
-        </p>
+        <div>
+          <h3 className="mt-3 truncate text-sm font-medium">{name}</h3>
+          <p className="text-muted-foreground truncate text-xs">
+            {size} | Nov 12 2023
+          </p>
+        </div>
+        {visibility && (
+          <Badge variant="outline" className="mt-3 capitalize">
+            {visibility}
+          </Badge>
+        )}
       </CardContent>
     </Card>
   );

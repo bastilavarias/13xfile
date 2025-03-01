@@ -73,36 +73,38 @@ export default function BaseLayout({
               links={[
                 {
                   title: "Library",
-                  label: "99",
+                  label: "0",
                   icon: Library,
                   variant: "secondary",
+                  href: "/",
                 },
                 {
-                  title: "Files",
-                  label: "99",
+                  title: "Hosted Files",
+                  label: "0",
                   icon: Server,
                   variant: "ghost",
+                  href: "/hosted-files",
                 },
               ]}
             />
             <Separator />
-            <BaseLayoutNavSideBarNav
-              isCollapsed={isCollapsed}
-              links={[
-                {
-                  title: "Recent Files",
-                  label: "",
-                  icon: Files,
-                  variant: "ghost",
-                },
-                {
-                  title: "thesisv2.pdf",
-                  label: "",
-                  icon: File,
-                  variant: "ghost",
-                },
-              ]}
-            />
+            {/*<BaseLayoutNavSideBarNav*/}
+            {/*  isCollapsed={isCollapsed}*/}
+            {/*  links={[*/}
+            {/*    {*/}
+            {/*      title: "Recent Files",*/}
+            {/*      label: "",*/}
+            {/*      icon: Files,*/}
+            {/*      variant: "ghost",*/}
+            {/*    },*/}
+            {/*    {*/}
+            {/*      title: "thesisv2.pdf",*/}
+            {/*      label: "",*/}
+            {/*      icon: File,*/}
+            {/*      variant: "ghost",*/}
+            {/*    },*/}
+            {/*  ]}*/}
+            {/*/>*/}
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={defaultLayout[1]} minSize={30}>
