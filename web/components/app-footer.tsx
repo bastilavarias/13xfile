@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { Github, Twitter, Mail } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export default function AppFooter() {
+export default function AppFooter({ className }: { className?: string }) {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-50 dark:bg-gray-950 py-12 border-t border-gray-200 dark:border-gray-800">
+    <footer
+      className={cn([
+        "bg-gray-50 dark:bg-gray-950 py-12 border-t border-gray-200 dark:border-gray-800",
+        className,
+      ])}
+    >
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           <div>
