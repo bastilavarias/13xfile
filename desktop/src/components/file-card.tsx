@@ -11,23 +11,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/tailwind";
 import { Badge } from "@/components/ui/badge";
-import { getFileType } from "@/helpers/file-helpers";
-import { FileType } from "@/types/color";
+import { getFileTypeIcon } from "@/helpers/file-helpers";
+import { CoreFile } from "@/types/core";
 
-interface FilePreviewCardProps {
-  type: FileType;
-  name: string;
-  size: string;
-  visibility?: string;
-}
-
-export default function FilePreviewCard({
+export default function FileCard({
   type = "default",
   name,
   size,
   visibility,
-}: FilePreviewCardProps) {
-  const foundFileType = getFileType(type);
+}: CoreFile) {
+  const foundFileType = getFileTypeIcon(type);
 
   return (
     <Card>

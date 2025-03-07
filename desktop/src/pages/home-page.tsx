@@ -3,7 +3,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BaseLayout from "@/layouts/base/layout";
 import { Library, Heart, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import FilePreviewCard from "@/components/file-preview-card";
+import FileCard from "@/components/file-card";
 import FileTable from "@/components/file-table";
 import CustomToolbar from "@/components/custom-toolbar";
 import { CARD_VIEW_MODE, SORT_DESC } from "@/constants";
@@ -70,7 +70,7 @@ export default function HomePage() {
             {viewMode === CARD_VIEW_MODE ? (
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {files.map((file, index) => (
-                  <FilePreviewCard
+                  <FileCard
                     key={index}
                     name={file.name}
                     type={file.type}

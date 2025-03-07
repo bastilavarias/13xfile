@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import BaseLayout from "@/layouts/base/layout";
-import { LoaderCircle, Server } from "lucide-react";
+import { Server } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import FilePreviewCard from "@/components/file-preview-card";
+import FileCard from "@/components/file-card";
 import FileTable from "@/components/file-table";
 import CustomToolbar from "@/components/custom-toolbar";
 import { CARD_VIEW_MODE, SORT_DESC } from "@/constants";
-import { Button } from "@/components/ui/button";
 
 export default function HostedFilePage() {
   const [viewMode, setViewMode] = useState(CARD_VIEW_MODE);
@@ -101,7 +100,7 @@ export default function HostedFilePage() {
             {viewMode === CARD_VIEW_MODE ? (
               <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {files.map((file, index) => (
-                  <FilePreviewCard
+                  <FileCard
                     key={index}
                     name={file.name}
                     type={file.type}
