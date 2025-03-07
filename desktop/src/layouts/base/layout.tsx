@@ -66,7 +66,7 @@ export default function BaseLayout({
                 isCollapsed ? "h-[52px]" : "px-2",
               )}
             >
-              13xFile
+              <span className="text-2xl font-bold">13xFile</span>
             </div>
             <BaseLayoutNavSideBarNav
               isCollapsed={isCollapsed}
@@ -88,6 +88,21 @@ export default function BaseLayout({
               ]}
             />
             <Separator />
+            <BaseLayoutNavSideBarNav
+              isCollapsed={isCollapsed}
+              links={[
+                {
+                  title: "Login",
+                  variant: "secondary",
+                  href: "/login",
+                },
+                {
+                  title: "Register",
+                  variant: "ghost",
+                  href: "/register",
+                },
+              ]}
+            />
             {/*<BaseLayoutNavSideBarNav*/}
             {/*  isCollapsed={isCollapsed}*/}
             {/*  links={[*/}

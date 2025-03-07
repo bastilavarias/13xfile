@@ -15,7 +15,7 @@ interface NavProps {
   links: {
     title: string;
     label?: string;
-    icon: LucideIcon;
+    icon?: LucideIcon;
     variant: "default" | "ghost" | "secondary";
     href: string;
   }[];
@@ -51,7 +51,7 @@ export default function BaseLayoutNavSideBarNav({
                       "dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-white",
                   )}
                 >
-                  <link.icon className="h-4 w-4" />
+                  {link.icon && <link.icon className="mr-2 h-4 w-4" />}
                   <span className="sr-only">{link.title}</span>
                 </Link>
               </TooltipTrigger>
@@ -78,7 +78,8 @@ export default function BaseLayoutNavSideBarNav({
                 "justify-start",
               )}
             >
-              <link.icon className="mr-2 h-4 w-4" />
+              {link.icon && <link.icon className="mr-2 h-4 w-4" />}
+
               {link.title}
               {link.label && (
                 <span

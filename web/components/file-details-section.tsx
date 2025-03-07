@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, Eye, AlertTriangle, Calendar, Users } from "lucide-react";
+import { Download, AlertTriangle, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,8 +10,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+
 
 export default function FileDetailsSection() {
+  const isOnline = true;
+
   return (
     <section className="grid md:grid-cols-5 gap-10">
       <Card className="mb-8 overflow-hidden col-span-3">
@@ -50,6 +54,17 @@ export default function FileDetailsSection() {
                 <span className="text-sm font-medium">Downloads</span>
                 <span className="text-sm">0</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-sm font-medium">Status</span>
+                <Badge variant="secondary">
+                       <span
+                           className={`w-3 h-3 rounded-full ${
+                               isOnline ? "bg-green-500" : "bg-red-500"
+                           }`}
+                       ></span>
+                  {isOnline ? "Online" : "Offline"}
+                </Badge>
+              </div>
             </div>
             <div>
               <h4 className="text-sm font-medium mb-2">Description</h4>
@@ -65,8 +80,9 @@ export default function FileDetailsSection() {
             <Button
               size="lg"
               className="w-full gap-2 bg-green-600 hover:bg-green-700 font-semibold dark:text-white"
+              disabled={!isOnline}
             >
-              <Download className="h-8 w-8" strokeWidth={3} />
+              <Download className="h-8 w-8" strokeWidth={3}  />
               DOWNLOAD NOW
             </Button>
 
@@ -100,7 +116,7 @@ export default function FileDetailsSection() {
           </p>
           <div className="space-y-2">
             <p className="text-sm">
-              If you see any "Download" buttons in ads, be smart:
+              If you see any &#34;Download&#34; buttons in ads, be smart:
             </p>
             <ul className="ml-6 list-disc text-sm space-y-1">
               <li>Close that and come back here</li>

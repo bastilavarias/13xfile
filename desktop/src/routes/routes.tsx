@@ -2,6 +2,8 @@ import { createRoute } from "@tanstack/react-router";
 import { RootRoute } from "./__root";
 import HomePage from "@/pages/home-page";
 import HostedFilePage from "@/pages/hosted-file-page";
+import LoginPage from "@/pages/login-page";
+import RegisterPage from "@/pages/register-page";
 
 // TODO: Steps to add a new route:
 // 1. Create a new page component in the '../pages/' directory (e.g., NewPage.tsx)
@@ -22,16 +24,33 @@ import HostedFilePage from "@/pages/hosted-file-page";
 // 4. Add to routeTree: RootRoute.addChildren([HomeRoute, NewRoute, ...])
 // 5. Add Link: <Link to="/new">New Page</Link>
 
-export const HomeRoute = createRoute({
+export const HomePageRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: "/",
   component: HomePage,
 });
 
-export const SecondPageRoute = createRoute({
+export const HostedPageFileRoute = createRoute({
   getParentRoute: () => RootRoute,
   path: "/hosted-files",
   component: HostedFilePage,
 });
 
-export const rootTree = RootRoute.addChildren([HomeRoute, SecondPageRoute]);
+export const LoginPageRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: "/login",
+  component: LoginPage,
+});
+
+export const RegisterPageRoute = createRoute({
+  getParentRoute: () => RootRoute,
+  path: "/register",
+  component: RegisterPage,
+});
+
+export const rootTree = RootRoute.addChildren([
+  HomePageRoute,
+  HostedPageFileRoute,
+  LoginPageRoute,
+  RegisterPageRoute,
+]);

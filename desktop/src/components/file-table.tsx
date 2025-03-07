@@ -27,16 +27,15 @@ interface CoreFileIcon extends CoreFile {
   icon: FileTypeIcon;
 }
 interface FileTableProps {
-  files: CoreFileIcon[];
+  files: CoreFile[];
 }
 
 export default function FileTable({ files }: FileTableProps) {
-  let [theFiles] = useState(files);
-  theFiles = theFiles.map((file) => ({
+  let [theFiles] = useState<CoreFileIcon[]>([]);
+  theFiles = files.map((file) => ({
     ...file,
     icon: getFileTypeIcon(file.type),
   }));
-  console.log(theFiles);
 
   return (
     <Table>
@@ -82,8 +81,6 @@ export default function FileTable({ files }: FileTableProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem>Open</DropdownMenuItem>
-                  <DropdownMenuItem>Download</DropdownMenuItem>
-                  <DropdownMenuItem>Share</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-destructive">
                     Delete
