@@ -62,8 +62,10 @@ interface CustomToolbarProps {
 }
 
 const FormSchema = z.object({
-  type: z.enum(["all", "mentions", "none"], {
-    required_error: "You need to select a notification type.",
+  file: z.any().refine((files) => files?.length > 0, "File is required"),
+  description: z.string().min(5, "Description must be at least 5 characters"),
+  visibility: z.enum(["public", "private"], {
+    required_error: "Visibility is required",
   }),
 });
 
@@ -181,7 +183,7 @@ export default function CustomToolbar({
   );
 }
 
-function ShareButton() {
+const ShareButton = () => {
   const [isSingleUploaderDialogOpen, setSingleUploaderDialogOpen] =
     useState(false);
   const [isFolderUploaderDialogOpen, setFolderUploaderDialogOpen] =
@@ -189,7 +191,27 @@ function ShareButton() {
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
+    defaultValues: {
+      file: null,
+      description: "",
+      visibility: "public",
+    },
   });
+
+  const onFormSubmit = async () => {
+    try {
+      const { file } = form.getValues();
+      const helia = await import("../helia");
+      const cid = await helia.uploadFile(file[0]);
+      if (cid) {
+        await helia.downloadFile(cid.cid, cid.filename);
+        alert("File downloaded in Downloads page.");
+      }
+    } catch (error) {
+      alert("Upload failed:");
+      console.error("Upload failed:", error);
+    }
+  };
 
   return (
     <>
@@ -223,58 +245,58 @@ function ShareButton() {
 
           <div className="space-y-5">
             <Form {...form}>
-              <form className="space-y-5">
+              <form
+                className="space-y-5"
+                onSubmit={form.handleSubmit(onFormSubmit)}
+              >
+                {/* ✅ Fix: File Upload (Register with RHF) */}
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="file"
                   render={({ field }) => (
                     <FormItem>
-                      <FormControl className="w-full">
-                        <Input id="file-upload" type="file" />
+                      <FormControl>
+                        <Input
+                          type="file"
+                          onChange={(e) => field.onChange(e.target.files)}
+                        />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
 
+                {/* ✅ Fix: Description Field (Spread `field`) */}
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormControl className="w-full">
-                        <Textarea placeholder="Description" />
+                      <FormControl>
+                        <Textarea placeholder="Description" {...field} />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
 
+                {/* ✅ Fix: Visibility Field */}
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="visibility"
                   render={({ field }) => (
-                    <FormItem className="space-y-3">
+                    <FormItem>
                       <FormLabel>Visibility</FormLabel>
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
                           defaultValue={field.value}
-                          className="flex flex-col space-y-1"
                         >
-                          <FormItem className="flex items-center space-y-0">
+                          <FormItem>
                             <FormControl>
                               <RadioGroupItem value="public" />
                             </FormControl>
-                            <FormLabel className="font-normal">
-                              Public
-                            </FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-y-0">
-                            <FormControl>
-                              <RadioGroupItem value="private" />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              Private
-                            </FormLabel>
+                            <FormLabel>Public</FormLabel>
                           </FormItem>
                         </RadioGroup>
                       </FormControl>
@@ -282,16 +304,16 @@ function ShareButton() {
                     </FormItem>
                   )}
                 />
+
+                {/* ✅ Submit Button */}
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  <Upload className="mr-2" /> Upload
+                </Button>
               </form>
             </Form>
           </div>
 
           {/* Dialog Footer */}
-          <DialogFooter>
-            <Button>
-              <Upload /> Upload
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -315,7 +337,7 @@ function ShareButton() {
               <form className="space-y-5">
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="file"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl className="w-full">
@@ -331,7 +353,7 @@ function ShareButton() {
 
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
                       <FormControl className="w-full">
@@ -343,7 +365,7 @@ function ShareButton() {
 
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="visibility"
                   render={({ field }) => (
                     <FormItem className="space-y-3">
                       <FormLabel>Visibility</FormLabel>
@@ -389,4 +411,4 @@ function ShareButton() {
       </Dialog>
     </>
   );
-}
+};
