@@ -1,4 +1,4 @@
-export type FileType =
+export type FileTypeCategory =
   | "document" // PDF, DOC, DOCX, TXT, etc.
   | "video" // MP4, AVI, MKV, MOV, etc.
   | "music" // MP3, WAV, FLAC, etc.
@@ -22,8 +22,8 @@ export type FileType =
   | "default"
   | string; // OBJ, STL, FBX, etc.
 
-export interface FileTypeIcon {
-  type: FileType;
+export interface FileTypeCategoryIcon {
+  type: FileTypeCategory;
   color: string;
   bgColor: string;
   icon: any;

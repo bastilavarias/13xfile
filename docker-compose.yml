@@ -1,0 +1,23 @@
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: api
+    restart: unless-stopped
+    tty: true
+    env_file:
+      - ./api/.env
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./api:/usr/src/app/13xfile/api
+      - ./api/package.json:/usr/src/app/13xfile/api/package.json
+      - ./api/package-lock.json:/usr/src/app/13xfile/api/package-lock.json
+      - /usr/src/app/13xfile/api/node_modules
+    networks:
+      - network
+
+networks:
+  network:
+    driver: bridge

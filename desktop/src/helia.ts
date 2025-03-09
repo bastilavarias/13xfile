@@ -14,17 +14,24 @@ export async function getHelia() {
 
 export async function uploadFile(
   file: File,
+  onProgress: (progress: number) => void,
 ): Promise<{ cid: string; filename: string } | null> {
   try {
     const { fs } = await getHelia();
     if (!fs) throw new Error("Helia filesystem (fs) is not initialized.");
     const fileBuffer = new Uint8Array(await file.arrayBuffer());
-    const cid = await fs.addBytes(fileBuffer);
+    let uploadedBytes = 0;
+    const cid = await fs.addBytes(fileBuffer, {
+      progress: (bytes: number) => {
+        uploadedBytes += bytes;
+        onProgress(uploadedBytes / fileBuffer.length); // Convert to percentage
+      },
+    });
     console.log("File uploaded, CID:", cid.toString());
     console.log(
       `Access it locally: http://127.0.0.1:8080/ipfs/${cid.toString()}`,
     );
-
+    onProgress(1); // Mark as 100% complete
     return { cid: cid.toString(), filename: file.name }; // Return CID and filename
   } catch (error) {
     console.error("Error uploading file:", error);
@@ -58,5 +65,26 @@ export async function downloadFile(
   } catch (error) {
     console.error("Error downloading file:", error);
     return false;
+  }
+}
+
+/**
+ * Checks if a file is available on Helia by attempting to retrieve a small chunk of data.
+ * @param cid - The CID of the file to check.
+ * @returns Boolean indicating whether the file is available.
+ */
+export async function isFileOnline(cid: string): Promise<boolean> {
+  try {
+    const { fs } = await getHelia();
+    if (!fs) throw new Error("Helia filesystem (fs) is not initialized.");
+
+    // Attempt to fetch a small portion of the file
+    const iterator = fs.cat(cid);
+    const { value } = await iterator.next();
+
+    return !!value; // If a value is received, the file exists
+  } catch (error) {
+    console.warn(`File with CID ${cid} is not available.`, error);
+    return false; // Return false if the file isn't found
   }
 }

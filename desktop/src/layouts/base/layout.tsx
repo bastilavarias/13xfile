@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { File, Files, Library, PlusCircle, Server } from "lucide-react";
-
+import { Library, Server } from "lucide-react";
 import { cn } from "@/utils/tailwind";
 import {
   ResizableHandle,
@@ -12,7 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import BaseLayoutNavSideBarNav from "@/layouts/base/components/sidebar-nav";
 import Navbar from "@/layouts/base/components/navbar";
 import DragTopWindow from "@/components/drag-top-window";
-import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function BaseLayout({
   children,
@@ -123,7 +122,10 @@ export default function BaseLayout({
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={defaultLayout[1]} minSize={30}>
-            <main className="h-screen overflow-y-auto pb-20">{children}</main>
+            <main className="h-screen overflow-y-auto pb-20">
+              {children}
+              <Toaster />
+            </main>
           </ResizablePanel>
         </ResizablePanelGroup>
       </TooltipProvider>

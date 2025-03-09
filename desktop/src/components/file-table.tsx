@@ -18,13 +18,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { CoreFile } from "@/types/core";
 import { cn } from "@/utils/tailwind";
-import { getFileTypeIcon } from "@/helpers/file-helpers";
-import { FileTypeIcon } from "@/types/color";
+import { getFileTypeCategoryIcon } from "@/helpers/file-helpers";
+import { FileTypeCategoryIcon } from "@/types/color";
 
 // Define the props for the FileTable component
 
 interface CoreFileIcon extends CoreFile {
-  icon: FileTypeIcon;
+  icon: FileTypeCategoryIcon;
 }
 interface FileTableProps {
   files: CoreFile[];
@@ -34,7 +34,7 @@ export default function FileTable({ files }: FileTableProps) {
   let [theFiles] = useState<CoreFileIcon[]>([]);
   theFiles = files.map((file) => ({
     ...file,
-    icon: getFileTypeIcon(file.type),
+    icon: getFileTypeCategoryIcon(file.category),
   }));
 
   return (

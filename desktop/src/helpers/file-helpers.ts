@@ -1,9 +1,11 @@
-import { FILE_TYPES } from "@/constants";
-import { FileType, FileTypeIcon } from "@/types/color";
+import { FILE_TYPE_CATEGORY_ICONS } from "@/constants";
+import { FileTypeCategory, FileTypeCategoryIcon } from "@/types/color";
 import { Ban } from "lucide-react";
 
-export const getFileTypeIcon = (type: FileType): FileTypeIcon => {
-  const fileType = FILE_TYPES.find((item) => item.type === type);
+export const getFileTypeCategoryIcon = (
+  type: FileTypeCategory,
+): FileTypeCategoryIcon => {
+  const fileType = FILE_TYPE_CATEGORY_ICONS.find((item) => item.type === type);
 
   return (
     fileType ?? {

@@ -1,6 +1,6 @@
-import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { MoreVertical } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { FileSearch, Globe2, Heart, Share, Share2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,16 +11,44 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/tailwind";
 import { Badge } from "@/components/ui/badge";
-import { getFileTypeIcon } from "@/helpers/file-helpers";
+import { getFileTypeCategoryIcon } from "@/helpers/file-helpers";
 import { CoreFile } from "@/types/core";
+import AppTooltip from "@/components/app-tooltip";
+import { isFileOnline } from "@/helia";
+import { toast } from "sonner";
 
 export default function FileCard({
-  type = "default",
+  category = "default",
+  cid,
   name,
   size,
   visibility,
 }: CoreFile) {
-  const foundFileType = getFileTypeIcon(type);
+  const categoryIcon = getFileTypeCategoryIcon(category);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    async function checkFileAvailability() {
+      const availability = await isFileOnline(cid);
+      setIsOnline(availability);
+    }
+  }, []);
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes >= 1024 * 1024 * 1024) {
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB"; // Convert to GB
+    } else if (bytes >= 1024 * 1024) {
+      return (bytes / (1024 * 1024)).toFixed(2) + " MB"; // Convert to MB
+    } else if (bytes >= 1024) {
+      return (bytes / 1024).toFixed(2) + " KB"; // Convert to KB
+    } else {
+      return bytes + " B"; // Show in Bytes if < 1KB
+    }
+  };
+
+  const onShareButtonClick = () => {
+    toast("File URL copied to clipboard.");
+  };
 
   return (
     <Card>
@@ -28,33 +56,33 @@ export default function FileCard({
         <div className="flex items-start justify-between">
           <div
             style={{
-              backgroundColor: foundFileType.bgColor,
+              backgroundColor: categoryIcon.bgColor,
             }}
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-md",
-              `bg-[${foundFileType.bgColor}]`,
+              `bg-[${categoryIcon.bgColor}]`,
             )}
           >
-            <foundFileType.icon
-              className="h-5 w-5"
-              color={foundFileType.color}
-            />
+            <categoryIcon.icon className="h-5 w-5" color={categoryIcon.color} />
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical size={16} />
+                <Share2 size={16} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Open</DropdownMenuItem>
+              <DropdownMenuItem>
+                Open in Web <Globe2 className="text-primary" />
+              </DropdownMenuItem>
+              <DropdownMenuItem>Download</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
         <div>
           <h3 className="mt-3 truncate text-sm font-medium">{name}</h3>
           <p className="text-muted-foreground truncate text-xs">
-            {size} | Nov 12 2023
+            {formatFileSize(size)} MB | Nov 12 2023
           </p>
         </div>
         {visibility && (
@@ -63,6 +91,35 @@ export default function FileCard({
           </Badge>
         )}
       </CardContent>
+      <CardFooter className="px-3">
+        <div className="flex-1">
+          <Badge variant="secondary">
+            <span
+              className={`h-3 w-3 rounded-full ${
+                isOnline ? "bg-green-500" : "bg-red-500"
+              }`}
+            ></span>
+            {isOnline ? "Online" : "Offline"}
+          </Badge>
+        </div>
+        <div className="flex items-center justify-end">
+          <AppTooltip label="Share">
+            <Button size="icon" variant="ghost" onClick={onShareButtonClick}>
+              <Share />
+            </Button>
+          </AppTooltip>
+          <AppTooltip label="Preview">
+            <Button size="icon" variant="ghost">
+              <FileSearch />
+            </Button>
+          </AppTooltip>
+          <AppTooltip label="Favorite">
+            <Button size="icon" variant="ghost">
+              <Heart />
+            </Button>
+          </AppTooltip>
+        </div>
+      </CardFooter>
     </Card>
   );
 }

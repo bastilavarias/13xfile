@@ -103,7 +103,7 @@ export default function HostedFilePage() {
                   <FileCard
                     key={index}
                     name={file.name}
-                    type={file.type}
+                    category={file.type}
                     size={file.size}
                     visibility={file.visibility}
                   />

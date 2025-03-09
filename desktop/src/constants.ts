@@ -1,4 +1,4 @@
-import { FileTypeIcon } from "@/types/color";
+import { FileTypeCategoryIcon } from "@/types/color";
 import {
   FileText,
   Video,
@@ -29,129 +29,111 @@ export const TABLE_VIEW_MODE = "table-view-mode";
 export const SORT_DESC = "sort-desc";
 export const SORT_ASC = "sort-asc";
 
-export const FILE_TYPES: FileTypeIcon[] = [
+export const FILE_TYPE_CATEGORY_ICONS: FileTypeCategoryIcon[] = [
   {
     type: "document",
     color: "#3b82f6", // Blue
-    bgColor: "#dbeafe", // Light blue
+    bgColor: "#dbeafe",
     icon: FileText,
   },
   {
     type: "video",
     color: "#ef4444", // Red
-    bgColor: "#fee2e2", // Light red
+    bgColor: "#fee2e2",
     icon: Video,
   },
   {
-    type: "music",
+    type: "audio",
     color: "#22c55e", // Green
-    bgColor: "#dcfce7", // Light green
-    icon: Music,
-  },
-  {
-    type: "applications",
-    color: "#f59e0b", // Amber
-    bgColor: "#fef3c7", // Light amber
-    icon: Package,
-  },
-  {
-    type: "compressed",
-    color: "#6b7280", // Gray
-    bgColor: "#f3f4f6", // Light gray
-    icon: Archive,
+    bgColor: "#dcfce7",
+    icon: Music, // New category added
   },
   {
     type: "image",
     color: "#8b5cf6", // Purple
-    bgColor: "#ede9fe", // Light purple
+    bgColor: "#ede9fe",
     icon: Image,
   },
   {
-    type: "code",
+    type: "archive",
+    color: "#6b7280", // Gray
+    bgColor: "#f3f4f6",
+    icon: Archive, // Merged compressed & archive
+  },
+  {
+    type: "executable",
+    color: "#f43f5e", // Rose
+    bgColor: "#ffe4e6",
+    icon: Terminal,
+  },
+  {
+    type: "script",
     color: "#f97316", // Orange
-    bgColor: "#ffedd5", // Light orange
-    icon: Code,
+    bgColor: "#ffedd5",
+    icon: Code, // New category added for scripts
   },
   {
     type: "spreadsheet",
     color: "#10b981", // Emerald
-    bgColor: "#d1fae5", // Light emerald
+    bgColor: "#d1fae5",
     icon: Table,
   },
   {
     type: "presentation",
     color: "#ec4899", // Pink
-    bgColor: "#fce7f3", // Light pink
+    bgColor: "#fce7f3",
     icon: Presentation,
   },
   {
     type: "database",
     color: "#14b8a6", // Teal
-    bgColor: "#ccfbf1", // Light teal
+    bgColor: "#ccfbf1",
     icon: Database,
   },
   {
     type: "ebook",
     color: "#a855f7", // Deep Purple
-    bgColor: "#f3e8ff", // Light deep purple
+    bgColor: "#f3e8ff",
     icon: BookOpen,
   },
   {
-    type: "executable",
-    color: "#f43f5e", // Rose
-    bgColor: "#ffe4e6", // Light rose
-    icon: Terminal,
-  },
-  {
-    type: "font",
-    color: "#0ea5e9", // Sky Blue
-    bgColor: "#e0f2fe", // Light sky blue
-    icon: CaseLower,
-  },
-  {
-    type: "archive",
-    color: "#64748b", // Slate
-    bgColor: "#f1f5f9", // Light slate
-    icon: HardDrive,
-  },
-  {
-    type: "disk-image",
-    color: "#6d28d9", // Violet
-    bgColor: "#ede9fe", // Light violet
-    icon: Disc,
-  },
-  {
     type: "config",
-    color: "#fbbf24", // Amber (lighter)
-    bgColor: "#fef3c7", // Light amber
+    color: "#fbbf24",
+    bgColor: "#fef3c7",
     icon: Settings,
   },
   {
     type: "log",
-    color: "#57534e", // Warm Gray
-    bgColor: "#f5f5f4", // Light warm gray
+    color: "#57534e",
+    bgColor: "#f5f5f4",
     icon: FileSearch,
   },
   {
     type: "backup",
-    color: "#9ca3af", // Cool Gray
-    bgColor: "#f3f4f6", // Light cool gray
+    color: "#9ca3af",
+    bgColor: "#f3f4f6",
     icon: Save,
   },
   {
     type: "virtual-machine",
-    color: "#7c3aed", // Indigo
-    bgColor: "#e0e7ff", // Light indigo
+    color: "#7c3aed",
+    bgColor: "#e0e7ff",
     icon: Cpu,
   },
   {
     type: "3d-model",
-    color: "#f472b6", // Fuchsia
-    bgColor: "#fce7f3", // Light fuchsia
+    color: "#f472b6",
+    bgColor: "#fce7f3",
     icon: Box,
   },
   {
     type: "default",
+    color: "#000000",
+    bgColor: "#f3f4f6",
+    icon: Ban,
+  },
+  {
+    type: "unknown",
     color: "#000000",
     bgColor: "#f3f4f6",
     icon: Ban,
