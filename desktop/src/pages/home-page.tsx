@@ -9,24 +9,37 @@ import CustomToolbar from "@/components/custom-toolbar";
 import { CARD_VIEW_MODE, SORT_DESC } from "@/constants";
 import fileService from "@/services/file";
 import { CoreFile } from "@/types/core";
+import { getIPFSInstance } from "@/helpers/ipfs-helpers";
 
 export default function HomePage() {
   const [viewMode, setViewMode] = useState(CARD_VIEW_MODE);
   const [sort, setSort] = useState(SORT_DESC);
   const [files, setFiles] = useState<CoreFile[]>([]);
+  const [ipfsInstance, setIPFSInstance] = useState(false);
+
+  useEffect(() => {
+    async function initIPFS() {
+      const instance = getIPFSInstance();
+      setIPFSInstance(instance);
+    }
+
+    initIPFS();
+  }, []);
 
   useEffect(() => {
     async function listFiles() {
+      if (!ipfsInstance) return;
+
       try {
-        const files = await fileService.list(); // Change to your API endpoint
+        const files = await fileService.list();
         setFiles(files);
       } catch (error) {
         console.error("Failed to fetch files:", error);
       }
     }
 
-    listFiles().then(() => true);
-  }, []); // Empty dependency array ensures this runs only on mount
+    listFiles();
+  }, [ipfsInstance]);
 
   return (
     <BaseLayout>
@@ -65,6 +78,7 @@ export default function HomePage() {
                 {files.map((file, index) => (
                   <FileCard
                     key={index}
+                    cid={file.cid}
                     name={file.name}
                     category={file.category}
                     size={file.size}

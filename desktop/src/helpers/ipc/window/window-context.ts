@@ -10,15 +10,5 @@ export function exposeWindowContext() {
     minimize: () => ipcRenderer.invoke(WIN_MINIMIZE_CHANNEL),
     maximize: () => ipcRenderer.invoke(WIN_MAXIMIZE_CHANNEL),
     close: () => ipcRenderer.invoke(WIN_CLOSE_CHANNEL),
-    saveFile: (data: { filename: string; content: string }) =>
-      ipcRenderer.send("save-file", data),
-    onSaveSuccess: (callback: (filePath: string) => void) =>
-      ipcRenderer.on("save-file-success", (_: any, filePath: string) =>
-        callback(filePath),
-      ),
-    onSaveError: (callback: (error: string) => void) =>
-      ipcRenderer.on("save-file-error", (_: any, error: string) =>
-        callback(error),
-      ),
   });
 }

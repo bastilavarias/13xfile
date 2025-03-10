@@ -12,6 +12,12 @@ interface ThemeModeContext {
   system: () => Promise<boolean>;
   current: () => Promise<"dark" | "light" | "system">;
 }
+interface IPFSContext {
+  getInstance: () => boolean;
+  store: (file: ArrayBuffer) => Promise<string>;
+  retrieve: (cid: string) => Promise<File>;
+  checkStatus: (cid: string) => Promise<boolean>;
+}
 interface ElectronWindow {
   minimize: () => Promise<void>;
   maximize: () => Promise<void>;
@@ -21,4 +27,5 @@ interface ElectronWindow {
 declare interface Window {
   themeMode: ThemeModeContext;
   electronWindow: ElectronWindow;
+  ipfs: IPFSContext;
 }

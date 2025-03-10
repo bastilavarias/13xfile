@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { getFileTypeCategoryIcon } from "@/helpers/file-helpers";
 import { CoreFile } from "@/types/core";
 import AppTooltip from "@/components/app-tooltip";
-import { isFileOnline } from "@/helia";
+import { checkFileStatusFromIPFS } from "@/helpers/ipfs-helpers";
 import { toast } from "sonner";
 
 export default function FileCard({
@@ -25,14 +25,21 @@ export default function FileCard({
   visibility,
 }: CoreFile) {
   const categoryIcon = getFileTypeCategoryIcon(category);
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(false);
 
   useEffect(() => {
     async function checkFileAvailability() {
-      const availability = await isFileOnline(cid);
-      setIsOnline(availability);
+      console.log("im called");
+      try {
+        const availability = await checkFileStatusFromIPFS(cid);
+        setIsOnline(availability);
+      } catch (error) {
+        console.error("Error checking file availability:", error);
+        setIsOnline(false);
+      }
     }
-  }, []);
+    checkFileAvailability();
+  }, [cid]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes >= 1024 * 1024 * 1024) {
@@ -48,6 +55,14 @@ export default function FileCard({
 
   const onShareButtonClick = () => {
     toast("File URL copied to clipboard.");
+  };
+
+  const download = async () => {
+    try {
+    } catch (e) {
+      console.log("Download error:");
+      console.log(e);
+    }
   };
 
   return (
@@ -75,7 +90,7 @@ export default function FileCard({
               <DropdownMenuItem>
                 Open in Web <Globe2 className="text-primary" />
               </DropdownMenuItem>
-              <DropdownMenuItem>Download</DropdownMenuItem>
+              <DropdownMenuItem onClick={download}>Download</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

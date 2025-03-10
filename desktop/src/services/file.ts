@@ -1,5 +1,6 @@
 import FileData from "@/data/file";
 import { CoreFile, RawHTTPFile } from "@/types/core";
+import { uploadFileToIPFS } from "@/helpers/ipfs-helpers";
 
 type FileMetadata = {
   name: string;
@@ -25,19 +26,16 @@ const fileService = {
     onProgress: (progress: number) => void,
   ): Promise<CoreFile | null> {
     try {
-      const helia = await import("../helia");
-      onProgress(10);
-      const cid = await helia.uploadFile(raw.file, (progress: number) => {
-        onProgress(progress * 0.7);
-      });
+      const cid = await uploadFileToIPFS(raw.file);
       if (cid) {
         onProgress(80);
         const metadata = extractFileObject(raw.file);
         const createdFile = await FileData.store(
-          { cid: cid.cid, metadata },
+          { cid: cid, metadata },
           (progress) => onProgress(80 + progress * 0.2),
         );
         onProgress(100);
+        console.log(createdFile);
         return createdFile;
       }
       return null;
