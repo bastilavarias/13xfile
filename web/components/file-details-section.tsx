@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Download, AlertTriangle, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,10 +13,50 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-
+import { CID } from "multiformats/cid";
+import { strings } from "@helia/strings";
+import { getInstance, startIpfs } from "@/ipfs";
 
 export default function FileDetailsSection() {
   const isOnline = true;
+
+  const downloadFromIPFS = async () => {
+    console.log("downloading...");
+    await startIpfs();
+    const { fs } = await getInstance();
+    if (!fs) {
+      throw new Error("Helia FS not found.");
+    }
+
+    const cid = CID.parse("QmPM4PqrN2K9bLknx8DSAVnK9U5hK96sYJ8nyFjmKRZzqR");
+    let data = "";
+    for await (const chunk of fs.cat(cid)) {
+      data += new TextDecoder().decode(chunk);
+    }
+
+    try {
+      const jsonObject = JSON.parse(data); // Convert string to JavaScript object
+      console.log("Fetched JSON Object:", jsonObject);
+      let filename = "test.jpg";
+
+      // Convert JSON object to a Blob
+      const blob = new Blob([JSON.stringify(jsonObject, null, 2)], {
+        type: "application/json",
+      });
+
+      // Create a download link and trigger download
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log(`Downloaded: ${filename}`);
+    } catch (error) {
+      console.error("Error parsing JSON:", error);
+    }
+  };
 
   return (
     <section className="grid md:grid-cols-5 gap-10">
@@ -57,11 +99,11 @@ export default function FileDetailsSection() {
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Status</span>
                 <Badge variant="secondary">
-                       <span
-                           className={`w-3 h-3 rounded-full ${
-                               isOnline ? "bg-green-500" : "bg-red-500"
-                           }`}
-                       ></span>
+                  <span
+                    className={`w-3 h-3 rounded-full ${
+                      isOnline ? "bg-green-500" : "bg-red-500"
+                    }`}
+                  ></span>
                   {isOnline ? "Online" : "Offline"}
                 </Badge>
               </div>
@@ -78,11 +120,12 @@ export default function FileDetailsSection() {
 
           <div className="space-y-2">
             <Button
+              onClick={downloadFromIPFS}
               size="lg"
               className="w-full gap-2 bg-green-600 hover:bg-green-700 font-semibold dark:text-white"
               disabled={!isOnline}
             >
-              <Download className="h-8 w-8" strokeWidth={3}  />
+              <Download className="h-8 w-8" strokeWidth={3} />
               DOWNLOAD NOW
             </Button>
 

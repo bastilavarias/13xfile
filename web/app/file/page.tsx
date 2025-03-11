@@ -1,5 +1,4 @@
 import ThemeProvider from "@/components/theme-provider";
-import AppFooter from "@/components/app-footer";
 import AppNavbar from "@/components/app-navbar";
 import FileDetailsSection from "@/components/file-details-section";
 

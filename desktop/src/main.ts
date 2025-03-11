@@ -7,7 +7,7 @@ import {
   installExtension,
   REACT_DEVELOPER_TOOLS,
 } from "electron-devtools-installer";
-import { startIpfs, stopIpfs } from "./ipfs";
+import { stopIpfs, bootIPFS } from "./ipfs";
 
 const inDevelopment = process.env.NODE_ENV === "development";
 
@@ -43,14 +43,6 @@ async function installExtensions() {
     console.log(`Extensions installed successfully: ${result.name}`);
   } catch {
     console.error("Failed to install extensions");
-  }
-}
-
-async function bootIPFS() {
-  try {
-    startIpfs();
-  } catch (error) {
-    console.error("Failed to boot IPFS: ", error);
   }
 }
 

@@ -29,7 +29,6 @@ export default function FileCard({
 
   useEffect(() => {
     async function checkFileAvailability() {
-      console.log("im called");
       try {
         const availability = await checkFileStatusFromIPFS(cid);
         setIsOnline(availability);
