@@ -17,6 +17,35 @@ const binaryPath = path.join(
 const ipfsRepoPath = path.join(app.getPath("documents"), "ipfs-repo");
 const env = { ...process.env, IPFS_PATH: ipfsRepoPath };
 
+async function getPublicIP() {
+  try {
+    const response = await fetch("https://api64.ipify.org?format=json");
+    const data = await response.json();
+    return data.ip;
+  } catch (error) {
+    console.error("Failed to fetch public IP:", error);
+    return null;
+  }
+}
+
+async function openFirewallPort(port) {
+  const command = [
+    "New-NetFirewallRule",
+    `-DisplayName 'Allow IPFS WebSocket ${port}'`,
+    "-Direction Inbound",
+    "-Protocol TCP",
+    `-LocalPort ${port}`,
+    "-Action Allow",
+  ].join(" ");
+
+  try {
+    await execPromise(`powershell -Command "${command}"`);
+    console.log(`✅ Successfully opened port ${port} in Windows Firewall.`);
+  } catch (error) {
+    console.error(`❌ Error opening port ${port}:`, error);
+  }
+}
+
 async function enableRepository() {
   try {
     await fs.promises.access(ipfsRepoPath);
@@ -31,8 +60,14 @@ async function enableRepository() {
 
 async function exposePublicNetwork() {
   const env = { ...process.env, IPFS_PATH: ipfsRepoPath };
+  const publicIp = await getPublicIP();
+  if (!publicIp) {
+    console.error("Public IP could not be determined.");
+    return;
+  }
 
   try {
+    // Enable AutoNAT & AutoRelay
     await execPromise(
       binaryPath,
       ["config", "--json", "Swarm.EnableAutoNATService", "true"],
@@ -40,7 +75,6 @@ async function exposePublicNetwork() {
     );
     console.log("AutoNAT service enabled successfully");
 
-    // Enable AutoRelay
     await execPromise(
       binaryPath,
       ["config", "--json", "Swarm.EnableAutoRelay", "true"],
@@ -56,7 +90,7 @@ async function exposePublicNetwork() {
     );
     console.log("DHT client mode enabled");
 
-    // Allow public swarm connections
+    // Adjust Swarm connection manager settings
     await execPromise(
       binaryPath,
       ["config", "--json", "Swarm.ConnMgr.LowWater", "100"],
@@ -74,7 +108,7 @@ async function exposePublicNetwork() {
     );
     console.log("Swarm connection manager updated");
 
-    const publicIp = "175.176.31.13"; //TODO: Make this dynamic
+    // Set Addresses.Announce to include WebSocket (4002/ws)
     await execPromise(
       binaryPath,
       [
@@ -82,17 +116,39 @@ async function exposePublicNetwork() {
         "--json",
         "Addresses.Announce",
         JSON.stringify([
-          `/ip4/${publicIp}/tcp/4001`,
-          `/ip4/${publicIp}/udp/4001/quic`,
+          `/ip4/${publicIp}/tcp/4001`, // TCP transport
+          `/ip4/${publicIp}/udp/4001/quic`, // QUIC transport
+          `/ip4/${publicIp}/tcp/4002/ws`, // WebSocket transport
         ]),
       ],
       { env },
     );
     console.log("Public IP announced");
 
-    console.log("IPFS configuration for public network completed.");
+    // Ensure WebSockets are in Swarm Listen Addresses
+    await execPromise(
+      binaryPath,
+      [
+        "config",
+        "--json",
+        "Addresses.Swarm",
+        JSON.stringify([
+          `/ip4/0.0.0.0/tcp/4001`, // TCP transport
+          `/ip4/0.0.0.0/udp/4001/quic`, // QUIC transport
+          `/ip4/0.0.0.0/tcp/4002/ws`, // WebSocket transport
+        ]),
+      ],
+      { env },
+    );
+    console.log("Swarm addresses updated to listen on WebSockets");
+
+    // await openFirewallPort(4002);
+
+    console.log(
+      "✅ IPFS is now properly configured for public network access.",
+    );
   } catch (error) {
-    console.error("Error configuring IPFS for public network:", error);
+    console.error("❌ Error configuring IPFS for public network:", error);
   }
 }
 
@@ -100,12 +156,15 @@ async function waitForDaemon() {
   return new Promise<void>((resolve) => {
     const checkInterval = setInterval(async () => {
       try {
+        if (!ipfsProcess) {
+          return;
+        }
         const { stdout } = await execPromise(binaryPath, ["id"], { env });
         console.log(stdout);
         clearInterval(checkInterval);
         resolve();
-      } catch (err) {
-        console.log("Waiting for IPFS daemon to start...", err);
+      } catch (error) {
+        console.log("Waiting for IPFS daemon to start...", error);
       }
     }, 500);
   });
@@ -123,8 +182,6 @@ async function startDaemon() {
     await waitForDaemon();
     const kuboModule = await import("kubo-rpc-client");
     ipfsClient = kuboModule.create({ url: "http://127.0.0.1:5001/api/v0" });
-    // const id = await ipfsClient.id();
-    // console.log("Connected to Kubo!", id);
   } catch (error) {
     console.error("Error starting IPFS daemon:", error);
   }
@@ -151,11 +208,15 @@ export async function uploadFile(file: ArrayBuffer): Promise<string | null> {
   try {
     const fileBuffer = Buffer.from(file);
     const result = await ipfsClient.add(fileBuffer);
-    if (ipfsClient.routing?.provide) {
-      await ipfsClient.routing.provide(result.cid);
-    }
+    const cid = result.cid.toString();
 
-    return result.cid.toString();
+    await execPromise(binaryPath, ["routing", "provide", cid]);
+    console.log("📢 CID announced to the network!");
+
+    await execPromise(binaryPath, ["pin", "add", cid]);
+    console.log("📢 CID pinned to the node!");
+
+    return cid;
   } catch (error) {
     console.error("Error uploading file:", error);
     return null;

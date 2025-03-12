@@ -1,5 +1,6 @@
 "use client";
 
+import {useEffect} from "react";
 import Link from "next/link";
 import { Download, AlertTriangle, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,37 +15,36 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { CID } from "multiformats/cid";
-import { strings } from "@helia/strings";
 import { getInstance, startIpfs } from "@/ipfs";
 
 export default function FileDetailsSection() {
   const isOnline = true;
 
+  useEffect(() => {
+    startIpfs();
+  }, []);
+
   const downloadFromIPFS = async () => {
-    console.log("downloading...");
-    await startIpfs();
-    const { fs } = await getInstance();
-    if (!fs) {
-      throw new Error("Helia FS not found.");
-    }
-
-    const cid = CID.parse("QmPM4PqrN2K9bLknx8DSAVnK9U5hK96sYJ8nyFjmKRZzqR");
-    let data = "";
-    for await (const chunk of fs.cat(cid)) {
-      data += new TextDecoder().decode(chunk);
-    }
-
     try {
-      const jsonObject = JSON.parse(data); // Convert string to JavaScript object
-      console.log("Fetched JSON Object:", jsonObject);
-      let filename = "test.jpg";
+      console.log("Downloading...");
+      const { fs } = await getInstance();
+      if (!fs) {
+        throw new Error("Helia FS not found.");
+      }
 
-      // Convert JSON object to a Blob
-      const blob = new Blob([JSON.stringify(jsonObject, null, 2)], {
-        type: "application/json",
-      });
+      const cid = CID.parse("Qmbo3nJhkwiZetfxyGaNH2a2ahJgJxYoTeiTXWS8pjWffe");
 
-      // Create a download link and trigger download
+      // Collect binary data
+      const chunks = [];
+      for await (const chunk of fs.cat(cid)) {
+        chunks.push(chunk);
+      }
+
+      // Combine chunks into a single Blob
+      const blob = new Blob(chunks, { type: "image/jpeg" }); // Set correct MIME type
+
+      // Create a download link
+      const filename = "downloaded_image.jpg"; // Correct file extension
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = filename;
@@ -54,7 +54,7 @@ export default function FileDetailsSection() {
 
       console.log(`Downloaded: ${filename}`);
     } catch (error) {
-      console.error("Error parsing JSON:", error);
+      console.error("Error downloading from IPFS:", error);
     }
   };
 
