@@ -1,0 +1,1 @@
+Check IPFS status: sudo systemctl (status|restart) ipfs

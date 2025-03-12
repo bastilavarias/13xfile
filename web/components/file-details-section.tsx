@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect} from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { Download, AlertTriangle, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,24 +27,25 @@ export default function FileDetailsSection() {
   const downloadFromIPFS = async () => {
     try {
       console.log("Downloading...");
+      const startTime = performance.now(); // Start timer
+
       const { fs } = await getInstance();
       if (!fs) {
         throw new Error("Helia FS not found.");
       }
 
-      const cid = CID.parse("Qmbo3nJhkwiZetfxyGaNH2a2ahJgJxYoTeiTXWS8pjWffe");
+      const cid = CID.parse("QmPSSehfTER2jLcWsg6paeGN1oCSzpwWDwQCPGSxF2FANB");
 
-      // Collect binary data
       const chunks = [];
       for await (const chunk of fs.cat(cid)) {
         chunks.push(chunk);
       }
 
       // Combine chunks into a single Blob
-      const blob = new Blob(chunks, { type: "image/jpeg" }); // Set correct MIME type
+      const blob = new Blob(chunks, { type: "image/jpeg" });
 
       // Create a download link
-      const filename = "downloaded_image.jpg"; // Correct file extension
+      const filename = "downloaded_image.jpg";
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = filename;
@@ -52,7 +53,11 @@ export default function FileDetailsSection() {
       link.click();
       document.body.removeChild(link);
 
+      const endTime = performance.now(); // End timer
+      const timeTaken = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds
+
       console.log(`Downloaded: ${filename}`);
+      console.log(`Download completed in ${timeTaken} seconds.`);
     } catch (error) {
       console.error("Error downloading from IPFS:", error);
     }
