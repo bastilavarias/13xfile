@@ -15,13 +15,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { CID } from "multiformats/cid";
-import { getInstance, startIpfs } from "@/ipfs";
+import { getInstance, bootIPFS, stopIPFS } from "@/lib/ipfs";
 
 export default function FileDetailsSection() {
   const isOnline = true;
 
   useEffect(() => {
-    startIpfs();
+    bootIPFS();
   }, []);
 
   const downloadFromIPFS = async () => {
@@ -29,35 +29,48 @@ export default function FileDetailsSection() {
       console.log("Downloading...");
       const startTime = performance.now(); // Start timer
 
-      const { fs } = await getInstance();
+      const { fs, helia } = await getInstance();
       if (!fs) {
         throw new Error("Helia FS not found.");
       }
 
-      const cid = CID.parse("QmPSSehfTER2jLcWsg6paeGN1oCSzpwWDwQCPGSxF2FANB");
+      const cid = CID.parse("Qmc6EgUEnzkHPp4BBgSvxNS5uvbeq1mRbUiu3kNreqZCsP");
 
       const chunks = [];
       for await (const chunk of fs.cat(cid)) {
         chunks.push(chunk);
       }
 
-      // Combine chunks into a single Blob
-      const blob = new Blob(chunks, { type: "image/jpeg" });
+      // Combine all chunks into a single Uint8Array
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const combined = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.length;
+      }
 
-      // Create a download link
-      const filename = "downloaded_image.jpg";
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Convert Uint8Array to a Blob
+      const blob = new Blob([combined]);
+
+      // Create a downloadable link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "downloaded-file.mp4"; // You can set a custom filename here
+      document.body.appendChild(a);
+      a.click();
+
+      // Clean up
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
       const endTime = performance.now(); // End timer
       const timeTaken = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds
 
-      console.log(`Downloaded: ${filename}`);
       console.log(`Download completed in ${timeTaken} seconds.`);
+
+      helia?.pins.add(cid);
     } catch (error) {
       console.error("Error downloading from IPFS:", error);
     }

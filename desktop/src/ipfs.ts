@@ -3,127 +3,133 @@ import { tmpdir } from "os";
 import path from "path";
 import { app } from "electron";
 import { promisify } from "util";
-import { existsSync, mkdirSync, promises, unlinkSync } from "fs";
+import { existsSync, mkdirSync, promises as fsPromises, unlinkSync } from "fs";
 
 const execPromise = promisify(execFile);
 
-let ipfsProcess: any = null;
-let ipfsClient: any = null;
-
-const binaryPath = path.join(
+// Constants
+const BINARY_PATH = path.join(
   app.getAppPath(),
   "src/bin/ipfs/windows",
   process.platform === "win32" ? "ipfs.exe" : "ipfs",
 );
-const repoPath = path.join(app.getPath("documents"), "ipfs-repo");
-const env = { ...process.env, IPFS_PATH: repoPath };
-const dhtIP = "";
-const dhtPeerID = "";
-const ownPeerAddress = `/ip4/${dhtIP}/tcp/4001/p2p/${dhtPeerID}`;
+const REPO_PATH = path.join(app.getPath("documents"), "ipfs-repo");
+const ENV = { ...process.env, IPFS_PATH: REPO_PATH };
+const DHT_IP = "";
+const DHT_PEER_ID = "";
+const DHT_MULTIADDR = `/ip4/${DHT_IP}/tcp/4001/p2p/${DHT_PEER_ID}`;
 
-export async function bootIPFS() {
-  await ensureIpfsRepo();
-  await startDaemon();
-  await waitForDaemon();
-  await connectToCustomRelay();
-  await checkIfConnectedToDHT(dhtPeerID);
-  console.log("IPFS booted...");
-}
-
-async function startDaemon() {
-  try {
-    ipfsProcess = spawn(binaryPath, ["daemon"], { stdio: "inherit", env });
-
-    ipfsProcess.on("error", (err: any) => {
-      console.error("Failed to start IPFS:", err);
-    });
-    ipfsProcess.on("exit", (code: any) => {
-      console.log("IPFS stopped with exit code:", code);
-    });
-  } catch (error) {
-    console.error("Error starting IPFS daemon:", error);
-  }
-}
+let ipfsProcess: ReturnType<typeof spawn> | null = null;
 
 async function ensureIpfsRepo() {
-  if (!existsSync(repoPath)) {
-    mkdirSync(repoPath, { recursive: true });
-    await execPromise(binaryPath, ["init"], { env });
+  if (!existsSync(REPO_PATH)) {
+    mkdirSync(REPO_PATH, { recursive: true });
+    await execPromise(BINARY_PATH, ["init"], { env: ENV });
   }
 
-  const lockFile = path.join(repoPath, "repo.lock");
+  const lockFile = path.join(REPO_PATH, "repo.lock");
   if (existsSync(lockFile)) {
     console.log("Removing stale IPFS lock file...");
     unlinkSync(lockFile);
   }
 }
 
-async function waitForDaemon() {
-  return new Promise<void>((resolve) => {
+async function startIpfsDaemon() {
+  return new Promise<void>((resolve, reject) => {
+    ipfsProcess = spawn(BINARY_PATH, ["daemon"], {
+      stdio: "inherit",
+      env: ENV,
+    });
+
+    ipfsProcess.on("error", (err) => {
+      console.error("Failed to start IPFS:", err);
+      reject(err);
+    });
+
+    ipfsProcess.on("exit", (code) => {
+      console.log("IPFS stopped with exit code:", code);
+      reject(new Error(`IPFS daemon exited with code ${code}`));
+    });
+
     const checkInterval = setInterval(async () => {
       try {
-        const { stdout } = await execPromise(binaryPath, ["id"], { env });
+        const { stdout } = await execPromise(BINARY_PATH, ["id"], { env: ENV });
         if (stdout.includes("ID")) {
           clearInterval(checkInterval);
           resolve();
         }
       } catch (error) {
-        console.log("Waiting for IPFS daemon to start...");
+        console.log("Waiting for IPFS daemon to start...", error);
       }
-    }, 2000); // Check every 1 second
+    }, 2000);
   });
 }
 
 async function connectToCustomRelay() {
   try {
-    const output = await execPromise(binaryPath, ["swarm", "peers"], {
-      env,
+    const { stdout } = await execPromise(BINARY_PATH, ["swarm", "peers"], {
+      env: ENV,
     });
-    if (output.stdout.includes(ownPeerAddress)) {
+
+    if (stdout.includes(DHT_MULTIADDR)) {
+      console.log("Already connected to custom relay:", DHT_MULTIADDR);
       return;
     }
 
-    await execPromise(binaryPath, ["swarm", "connect", ownPeerAddress], {
-      env,
+    await execPromise(BINARY_PATH, ["swarm", "connect", DHT_MULTIADDR], {
+      env: ENV,
     });
-    console.log("Connected to custom relay:", ownPeerAddress);
+    console.log("Connected to custom relay:", DHT_MULTIADDR);
   } catch (error) {
     console.error("Error connecting to custom relay:", error);
   }
 }
 
-async function checkIfConnectedToDHT(dhtPeerID: string) {
+// Helper function to check if connected to a specific DHT peer
+async function checkIfConnectedToDHT(peerId: string) {
   try {
-    const { stdout } = await execPromise(binaryPath, ["swarm", "peers"], {
-      env,
+    const { stdout } = await execPromise(BINARY_PATH, ["swarm", "peers"], {
+      env: ENV,
     });
-    console.log("Connected to the DHT Server: ", stdout.includes(dhtPeerID));
+    console.log("Connected to the DHT Server:", stdout.includes(peerId));
   } catch (error) {
     console.error("Error checking connected peers:", error);
-    return false;
   }
 }
 
-export function getInstance() {
-  return !!ipfsClient && !!ipfsClient;
+// Main function to boot IPFS
+export async function bootIPFS() {
+  try {
+    await ensureIpfsRepo();
+    await startIpfsDaemon();
+    await connectToCustomRelay();
+    await checkIfConnectedToDHT(DHT_PEER_ID);
+    console.log("IPFS booted successfully.");
+  } catch (error) {
+    console.error("Error booting IPFS:", error);
+    throw error;
+  }
 }
 
+// Function to upload a file to IPFS
 export async function uploadFile(file: ArrayBuffer): Promise<string | null> {
   try {
-    const env = { ...process.env, IPFS_PATH: repoPath }; // Ensure custom repo path is used
-    const fileBuffer = Buffer.from(file);
     const tempDir = tmpdir();
     const tempFilePath = path.join(tempDir, "ipfs_upload");
-    await promises.writeFile(tempFilePath, fileBuffer);
+    await fsPromises.writeFile(tempFilePath, Buffer.from(file));
+
     const { stdout } = await execPromise(
-      binaryPath,
+      BINARY_PATH,
       ["add", "-q", tempFilePath],
-      { env },
+      { env: ENV },
     );
     const cid = stdout.trim();
 
-    await execPromise(binaryPath, ["routing", "provide", cid], { env });
-    await execPromise(binaryPath, ["pin", "add", cid], { env });
+    await execPromise(BINARY_PATH, ["routing", "provide", cid], { env: ENV });
+    await execPromise(BINARY_PATH, ["pin", "add", cid], { env: ENV });
+
+    // Clean up temporary file
+    await fsPromises.unlink(tempFilePath);
 
     return cid;
   } catch (error) {
@@ -134,26 +140,12 @@ export async function uploadFile(file: ArrayBuffer): Promise<string | null> {
 
 export async function checkFileStatus(cid: string): Promise<boolean> {
   try {
-    return await new Promise((resolve, reject) => {
-      const process = spawn(binaryPath, ["cat", cid], { env });
-      let hasData = false;
-      process.stdout.once("data", (chunk) => {
-        hasData = true;
-        resolve(true);
-        process.kill();
-      });
-      process.stderr.once("data", (data) => {
-        resolve(false); // File likely doesn't exist
-      });
-      process.on("error", (error) => {
-        reject(error);
-      });
-      process.on("close", (code) => {
-        if (!hasData) resolve(false);
-      });
+    const { stdout } = await execPromise(BINARY_PATH, ["cat", cid], {
+      env: ENV,
     });
+    return stdout.length > 0;
   } catch (error) {
-    console.error(error);
+    console.error("Error checking file status:", error);
     return false;
   }
 }
@@ -162,6 +154,8 @@ export function stopIpfs() {
   if (ipfsProcess) {
     ipfsProcess.kill();
     ipfsProcess = null;
-    ipfsClient = null;
+    console.log("IPFS daemon stopped.");
   }
 }
+
+// @TODO: Separate the logics of upload, get, check functions may put it on helpers and use in services and put dht server congs in env andddd create lib folder and put this ipfs file on the lib.

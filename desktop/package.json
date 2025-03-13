@@ -89,7 +89,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^24.2.2",
-    "kubo-rpc-client": "^5.1.0",
     "lucide-react": "^0.475.0",
     "next-themes": "^0.4.4",
     "react": "^19.0.0",

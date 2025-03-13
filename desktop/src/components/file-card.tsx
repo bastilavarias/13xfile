@@ -31,6 +31,7 @@ export default function FileCard({
     async function checkFileAvailability() {
       try {
         const availability = await checkFileStatusFromIPFS(cid);
+        console.log(availability);
         setIsOnline(availability);
       } catch (error) {
         console.error("Error checking file availability:", error);
