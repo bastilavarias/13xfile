@@ -9,18 +9,18 @@ import CustomToolbar from "@/components/custom-toolbar";
 import { CARD_VIEW_MODE, SORT_DESC } from "@/constants";
 import fileService from "@/services/file";
 import { CoreFile } from "@/types/core";
-import { getIPFSInstance } from "@/helpers/ipfs-helpers";
+import { isIPFSRunning } from "@/helpers/ipfs-helpers";
 
 export default function HomePage() {
   const [viewMode, setViewMode] = useState(CARD_VIEW_MODE);
   const [sort, setSort] = useState(SORT_DESC);
   const [files, setFiles] = useState<CoreFile[]>([]);
-  const [ipfsInstance, setIPFSInstance] = useState(false);
+  const [shouldFetch, setShouldFetch] = useState(false);
 
   useEffect(() => {
     async function initIPFS() {
-      const instance = getIPFSInstance();
-      setIPFSInstance(instance);
+      const instance = isIPFSRunning();
+      setShouldFetch(instance);
     }
 
     initIPFS();
@@ -28,7 +28,7 @@ export default function HomePage() {
 
   useEffect(() => {
     async function listFiles() {
-      if (!ipfsInstance) return;
+      if (!shouldFetch) return;
 
       try {
         const files = await fileService.list();
@@ -39,7 +39,7 @@ export default function HomePage() {
     }
 
     listFiles();
-  }, [ipfsInstance]);
+  }, [shouldFetch]);
 
   return (
     <BaseLayout>

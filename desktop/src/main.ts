@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow } from "electron";
 import registerListeners from "./helpers/ipc/listeners-register";
 // "electron-squirrel-startup" seems broken when packaging with vite
 //import started from "electron-squirrel-startup";
@@ -7,7 +7,7 @@ import {
   installExtension,
   REACT_DEVELOPER_TOOLS,
 } from "electron-devtools-installer";
-import { stopIpfs, bootIPFS } from "./ipfs";
+import { stopIpfs, bootIPFS } from "./lib/ipfs";
 
 const inDevelopment = process.env.NODE_ENV === "development";
 

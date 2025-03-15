@@ -2,13 +2,13 @@ import {
   IPFS_STORE,
   IPFS_RETRIEVE,
   IPFS_CHECK_STATUS,
-  IPFS_GET_INSTANCE,
+  IPFS_RUNNING,
 } from "./ipfs-channels";
 
 export function exposeIPFSContext() {
   const { contextBridge, ipcRenderer } = window.require("electron");
   contextBridge.exposeInMainWorld("ipfs", {
-    getInstance: () => ipcRenderer.invoke(IPFS_GET_INSTANCE),
+    isRunning: () => ipcRenderer.invoke(IPFS_RUNNING),
     store: async (file: ArrayBuffer) =>
       await ipcRenderer.invoke(IPFS_STORE, file),
     retrieve: async (cid: string) => ipcRenderer.invoke(IPFS_RETRIEVE, cid),

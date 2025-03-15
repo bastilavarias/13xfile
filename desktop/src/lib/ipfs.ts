@@ -5,9 +5,9 @@ import { app } from "electron";
 import { promisify } from "util";
 import { existsSync, mkdirSync, promises as fsPromises, unlinkSync } from "fs";
 
+require("dotenv").config();
 const execPromise = promisify(execFile);
 
-// Constants
 const BINARY_PATH = path.join(
   app.getAppPath(),
   "src/bin/ipfs/windows",
@@ -15,8 +15,8 @@ const BINARY_PATH = path.join(
 );
 const REPO_PATH = path.join(app.getPath("documents"), "ipfs-repo");
 const ENV = { ...process.env, IPFS_PATH: REPO_PATH };
-const DHT_IP = "";
-const DHT_PEER_ID = "";
+const DHT_IP = process.env.DHT_IP || "";
+const DHT_PEER_ID = process.env.DHT_PEER_ID || "";
 const DHT_MULTIADDR = `/ip4/${DHT_IP}/tcp/4001/p2p/${DHT_PEER_ID}`;
 
 let ipfsProcess: ReturnType<typeof spawn> | null = null;
@@ -29,7 +29,6 @@ async function ensureIpfsRepo() {
 
   const lockFile = path.join(REPO_PATH, "repo.lock");
   if (existsSync(lockFile)) {
-    console.log("Removing stale IPFS lock file...");
     unlinkSync(lockFile);
   }
 }
@@ -70,16 +69,13 @@ async function connectToCustomRelay() {
     const { stdout } = await execPromise(BINARY_PATH, ["swarm", "peers"], {
       env: ENV,
     });
-
     if (stdout.includes(DHT_MULTIADDR)) {
       console.log("Already connected to custom relay:", DHT_MULTIADDR);
       return;
     }
-
     await execPromise(BINARY_PATH, ["swarm", "connect", DHT_MULTIADDR], {
       env: ENV,
     });
-    console.log("Connected to custom relay:", DHT_MULTIADDR);
   } catch (error) {
     console.error("Error connecting to custom relay:", error);
   }
@@ -140,14 +136,19 @@ export async function uploadFile(file: ArrayBuffer): Promise<string | null> {
 
 export async function checkFileStatus(cid: string): Promise<boolean> {
   try {
-    const { stdout } = await execPromise(BINARY_PATH, ["cat", cid], {
+    await execPromise(BINARY_PATH, ["files", "stat", `/ipfs/${cid}`], {
       env: ENV,
+      maxBuffer: 1024,
     });
-    return stdout.length > 0;
+    return true;
   } catch (error) {
     console.error("Error checking file status:", error);
     return false;
   }
+}
+
+export function isRunning() {
+  return !!ipfsProcess;
 }
 
 export function stopIpfs() {

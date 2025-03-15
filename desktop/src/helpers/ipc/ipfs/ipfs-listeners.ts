@@ -1,16 +1,12 @@
 import { ipcMain } from "electron";
-import { uploadFile, checkFileStatus, getInstance } from "../../../ipfs";
-import {
-  IPFS_STORE,
-  IPFS_CHECK_STATUS,
-  IPFS_GET_INSTANCE,
-} from "./ipfs-channels";
+import { uploadFile, checkFileStatus, isRunning } from "../../../lib/ipfs";
+import { IPFS_STORE, IPFS_CHECK_STATUS, IPFS_RUNNING } from "./ipfs-channels";
 
 /**
  * Register IPC handlers
  */
 export function addIPFSEventListeners() {
-  ipcMain.handle(IPFS_GET_INSTANCE, async (_event) => getInstance());
+  ipcMain.handle(IPFS_RUNNING, async (_event) => isRunning());
   ipcMain.handle(
     IPFS_STORE,
     async (_event, file: ArrayBuffer) => await uploadFile(file),

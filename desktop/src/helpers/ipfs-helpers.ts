@@ -1,5 +1,5 @@
-export function getIPFSInstance(): boolean {
-  return window.ipfs.getInstance();
+export function isIPFSRunning(): boolean {
+  return window.ipfs.isRunning();
 }
 
 export async function uploadFileToIPFS(file: File) {

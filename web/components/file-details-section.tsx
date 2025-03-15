@@ -14,65 +14,31 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { CID } from "multiformats/cid";
-import { getInstance, bootIPFS, stopIPFS } from "@/lib/ipfs";
 
 export default function FileDetailsSection() {
   const isOnline = true;
 
-  useEffect(() => {
-    bootIPFS();
-  }, []);
-
-  const downloadFromIPFS = async () => {
+  const onDownload = async () => {
     try {
-      console.log("Downloading...");
-      const startTime = performance.now(); // Start timer
-
-      const { fs, helia } = await getInstance();
-      if (!fs) {
-        throw new Error("Helia FS not found.");
+      const response = await fetch(
+        `http://localhost:3333/api/ipfs/download/QmPM4PqrN2K9bLknx8DSAVnK9U5hK96sYJ8nyFjmKRZzqR`,
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
       }
-
-      const cid = CID.parse("Qmc6EgUEnzkHPp4BBgSvxNS5uvbeq1mRbUiu3kNreqZCsP");
-
-      const chunks = [];
-      for await (const chunk of fs.cat(cid)) {
-        chunks.push(chunk);
-      }
-
-      // Combine all chunks into a single Uint8Array
-      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-      const combined = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const chunk of chunks) {
-        combined.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      // Convert Uint8Array to a Blob
-      const blob = new Blob([combined]);
-
-      // Create a downloadable link
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "downloaded-file.mp4"; // You can set a custom filename here
+      a.download = `ipfs-image.png`;
       document.body.appendChild(a);
       a.click();
-
-      // Clean up
       document.body.removeChild(a);
+
       URL.revokeObjectURL(url);
-
-      const endTime = performance.now(); // End timer
-      const timeTaken = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds
-
-      console.log(`Download completed in ${timeTaken} seconds.`);
-
-      helia?.pins.add(cid);
     } catch (error) {
-      console.error("Error downloading from IPFS:", error);
+      console.error(error);
+      alert("Failed to download file. Please try again.");
     }
   };
 
@@ -138,10 +104,10 @@ export default function FileDetailsSection() {
 
           <div className="space-y-2">
             <Button
-              onClick={downloadFromIPFS}
               size="lg"
               className="w-full gap-2 bg-green-600 hover:bg-green-700 font-semibold dark:text-white"
               disabled={!isOnline}
+              onClick={onDownload}
             >
               <Download className="h-8 w-8" strokeWidth={3} />
               DOWNLOAD NOW

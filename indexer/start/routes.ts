@@ -9,6 +9,21 @@
 
 import router from "@adonisjs/core/services/router";
 const FilesController = () => import("#controllers/files_controller");
+const IPFSController = () => import("#controllers/ipfs_controller");
 
-router.get("files", [FilesController, "index"]);
-router.post("files", [FilesController, "create"]);
+router
+  .group(() => {
+    router
+      .group(() => {
+        router.get("/", [FilesController, "index"]);
+        router.post("/", [FilesController, "create"]);
+      })
+      .prefix("/file");
+
+    router
+      .group(() => {
+        router.get("/download/:cid", [IPFSController, "download"]);
+      })
+      .prefix("/ipfs");
+  })
+  .prefix("/api");

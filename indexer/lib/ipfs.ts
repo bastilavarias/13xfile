@@ -2,15 +2,17 @@ import { createHelia, HeliaLibp2p } from "helia";
 import { createLibp2p, Libp2p } from "libp2p";
 import { UnixFS, unixfs } from "@helia/unixfs";
 import { webSockets } from "@libp2p/websockets";
-import { bootstrap } from "@libp2p/bootstrap";
 import { Identify, identify } from "@libp2p/identify";
 import { gossipsub, GossipsubEvents } from "@chainsafe/libp2p-gossipsub";
 import { KadDHT, kadDHT } from "@libp2p/kad-dht";
-import { multiaddr } from "@multiformats/multiaddr";
 import { noise } from "@chainsafe/libp2p-noise";
+import { webTransport } from "@libp2p/webtransport";
+import { webRTC } from "@libp2p/webrtc";
+import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
+import { autoNAT } from "@libp2p/autonat";
+import { tcp } from "@libp2p/tcp";
+import { yamux } from "@chainsafe/libp2p-yamux";
 import { keys } from "@libp2p/crypto";
-import { get, set } from "idb-keyval";
-import { IDBBlockstore } from "blockstore-idb";
 import { generateKeyPair } from "@libp2p/crypto/keys";
 import {
   RSAPrivateKey,
@@ -18,6 +20,8 @@ import {
   Secp256k1PrivateKey,
   PubSub,
 } from "@libp2p/interface";
+import fs from "fs/promises";
+import path from "path";
 
 type Libp2pInstance = Libp2p<{
   dht: typeof kadDHT;
@@ -27,41 +31,43 @@ type Libp2pInstance = Libp2p<{
 
 type HeliaInstance = HeliaLibp2p<Libp2pInstance>;
 
-let heliaInstance: HeliaInstance | null = null;
-let unixFsInstance: UnixFS | null = null;
+let heliaInstance: HeliaInstance;
+let unixFsInstance: UnixFS;
 let libp2pInstance: Libp2p<{
   dht: KadDHT;
   pubsub: PubSub<GossipsubEvents>;
   identify: Identify;
 }> | null = null;
 
-const DHT_IP = "";
-const DHT_PEER_ID = "";
-const DHT_MULTIADDR = multiaddr(
-  `/ip4/${DHT_IP}/tcp/4002/ws/p2p/${DHT_PEER_ID}`,
-);
+const IPFS_KEYS_PATH = path.join(process.cwd(), "ipfs_keys.json");
 
 const saveKeyPair = async (privateKey: Uint8Array, publicKey: Uint8Array) => {
-  await set("helia-private-key", Buffer.from(privateKey).toString("base64"));
-  await set("helia-public-key", Buffer.from(publicKey).toString("base64"));
+  const data = {
+    "helia-private-key": Buffer.from(privateKey).toString("base64"),
+    "helia-public-key": Buffer.from(publicKey).toString("base64"),
+  };
+
+  await fs.writeFile(IPFS_KEYS_PATH, JSON.stringify(data, null, 2), "utf-8");
 };
 
 const loadKeyPair = async () => {
-  const privateKeyBase64 = await get("helia-private-key");
-  const publicKeyBase64 = await get("helia-public-key");
+  try {
+    const fileContent = await fs.readFile(IPFS_KEYS_PATH, "utf-8");
+    const data = JSON.parse(fileContent);
+    if (!data["helia-private-key"] || !data["helia-public-key"]) {
+      return null;
+    }
+    const privateKey = keys.privateKeyFromRaw(
+      Buffer.from(data["helia-private-key"], "base64"),
+    );
+    const publicKey = keys.publicKeyFromRaw(
+      Buffer.from(data["helia-public-key"], "base64"),
+    );
 
-  if (!privateKeyBase64 || !publicKeyBase64) {
+    return { privateKey, publicKey };
+  } catch (error) {
     return null;
   }
-
-  const privateKey = keys.privateKeyFromRaw(
-    Buffer.from(privateKeyBase64, "base64"),
-  );
-  const publicKey = keys.publicKeyFromRaw(
-    Buffer.from(publicKeyBase64, "base64"),
-  );
-
-  return { privateKey, publicKey };
 };
 
 export async function bootIPFS() {
@@ -77,15 +83,13 @@ export async function bootIPFS() {
     }
 
     libp2pInstance = await initializeLibp2p(privateKey);
-    console.log("libp2p Peer ID:", libp2pInstance.peerId.toString());
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-expect-error
     heliaInstance = await initializeHelia(libp2pInstance); // Exception haha
     unixFsInstance = unixfs(heliaInstance);
 
-    await checkDHTConnection(heliaInstance);
-    console.log("Helia is ready and connected to the custom IPFS server!");
+    console.log(`PeerID: ${heliaInstance.libp2p.peerId.toString()}`);
   } catch (e) {
     console.error("Error connecting to the custom IPFS server:", e);
   }
@@ -96,17 +100,29 @@ const initializeLibp2p = async (
 ) => {
   const libp2p = await createLibp2p({
     privateKey,
-    transports: [webSockets()],
-    connectionEncrypters: [noise()],
-    peerDiscovery: [
-      bootstrap({
-        list: [DHT_MULTIADDR.toString()],
-      }),
+    transports: [
+      tcp(),
+      webSockets(),
+      webTransport(),
+      webRTC(),
+      circuitRelayTransport(),
     ],
+    addresses: {
+      listen: [
+        "/ip4/0.0.0.0/tcp/4001",
+        "/ip4/0.0.0.0/tcp/4002/ws",
+        "/ip4/0.0.0.0/udp/4001/webrtc-direct",
+        "/ip4/0.0.0.0/tcp/0",
+        "/p2p-circuit",
+      ],
+    },
+    streamMuxers: [yamux()],
+    connectionEncrypters: [noise()],
     services: {
       dht: kadDHT({ clientMode: false }),
       pubsub: gossipsub(),
-      identify: identify(),
+      identify: identify({}),
+      autoNAT: autoNAT(),
     },
   });
 
@@ -115,38 +131,31 @@ const initializeLibp2p = async (
 };
 
 const initializeHelia = async (libp2p: Libp2pInstance) => {
-  const blockstore = new IDBBlockstore("files");
-  await blockstore.open();
-
   const helia = await createHelia({
     libp2p,
-    blockstore,
   });
 
-  await helia.libp2p.dial(DHT_MULTIADDR);
+  helia.libp2p.addEventListener("peer:connect", async (evt) => {
+    const peerId = evt.detail;
+    console.log("Peer connected:", peerId.toString());
+
+    try {
+      console.log("Dialing back to peer...");
+      await helia.libp2p.dial(peerId); // Connect back to them
+      console.log("Successfully connected back to peer:", peerId.toString());
+    } catch (error) {
+      console.error("Failed to connect back:", error);
+    }
+  });
 
   return helia;
 };
 
-const checkDHTConnection = async (helia: HeliaInstance) => {
-  const libp2p = helia.libp2p;
-  const peers = libp2p.getPeers();
-
-  if (peers.length === 0) {
-    console.log("❌ Not connected to any DHT peers.");
-    return;
-  }
-
-  console.log(`✅ Connected to ${peers.length} DHT peers.`);
-
-  if (!libp2p.services.dht) {
-    console.log("❌ DHT service is not enabled.");
-    return;
-  }
-};
-
 export async function getInstance() {
-  return { helia: heliaInstance, fs: unixFsInstance };
+  return {
+    helia: heliaInstance,
+    fs: unixFsInstance,
+  };
 }
 
 export async function stopIPFS() {

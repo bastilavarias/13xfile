@@ -13,7 +13,7 @@ interface ThemeModeContext {
   current: () => Promise<"dark" | "light" | "system">;
 }
 interface IPFSContext {
-  getInstance: () => boolean;
+  isRunning: () => boolean;
   store: (file: ArrayBuffer) => Promise<string>;
   retrieve: (cid: string) => Promise<File>;
   checkStatus: (cid: string) => Promise<boolean>;

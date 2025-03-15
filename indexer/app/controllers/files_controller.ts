@@ -195,11 +195,11 @@ const getFileCategory = (mimeType: string, extension: string): string => {
   return "unknown";
 };
 
-export function createSlug(filename: string) {
+const createSlug = (filename: string) => {
   const uniqueId = nanoid();
   const slug = slugify.default(filename, { lower: true, strict: true });
   return `${slug}-${uniqueId}`;
-}
+};
 
 export default class FilesController {
   async create({ request, response }: HttpContext) {

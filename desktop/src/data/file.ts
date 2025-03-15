@@ -34,7 +34,7 @@ const FileData = {
 
   async index(): Promise<CoreFile[] | []> {
     try {
-      const response = await fetch("http://localhost:3333/files", {
+      const response = await fetch("http://localhost:3333/api/file", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
