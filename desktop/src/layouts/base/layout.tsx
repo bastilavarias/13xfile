@@ -12,6 +12,7 @@ import BaseLayoutNavSideBarNav from "@/layouts/base/components/sidebar-nav";
 import Navbar from "@/layouts/base/components/navbar";
 import DragTopWindow from "@/components/drag-top-window";
 import { Toaster } from "@/components/ui/sonner";
+import { DownloadTrayCard } from "@/components/download-tray-card";
 
 export default function BaseLayout({
   children,
@@ -129,6 +130,7 @@ export default function BaseLayout({
           </ResizablePanel>
         </ResizablePanelGroup>
       </TooltipProvider>
+      <DownloadTrayCard />
     </>
   );
 }

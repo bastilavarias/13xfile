@@ -11,10 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/tailwind";
 import { Badge } from "@/components/ui/badge";
-import { getFileTypeCategoryIcon } from "@/helpers/file-helpers";
+import { getFileTypeCategoryIcon } from "@/helpers/file_helpers";
 import { CoreFile } from "@/types/core";
 import AppTooltip from "@/components/app-tooltip";
-import { checkFileStatusFromIPFS } from "@/helpers/ipfs-helpers";
 import { toast } from "sonner";
 
 export default function FileCard({
@@ -27,18 +26,18 @@ export default function FileCard({
   const categoryIcon = getFileTypeCategoryIcon(category);
   const [isOnline, setIsOnline] = useState(false);
 
-  useEffect(() => {
-    async function checkFileAvailability() {
-      try {
-        const availability = await checkFileStatusFromIPFS(cid);
-        setIsOnline(availability);
-      } catch (error) {
-        console.error("Error checking file availability:", error);
-        setIsOnline(false);
-      }
-    }
-    checkFileAvailability();
-  }, [cid]);
+  // useEffect(() => {
+  //   async function checkFileAvailability() {
+  //     try {
+  //       const availability = await checkFileStatusFromIPFS(cid);
+  //       setIsOnline(availability);
+  //     } catch (error) {
+  //       console.error("Error checking file availability:", error);
+  //       setIsOnline(false);
+  //     }
+  //   }
+  //   checkFileAvailability();
+  // }, [cid]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes >= 1024 * 1024 * 1024) {

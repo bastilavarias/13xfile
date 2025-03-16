@@ -1,6 +1,5 @@
 import FileData from "@/data/file";
-import { CoreFile, RawHTTPFile } from "@/types/core";
-import { uploadFileToIPFS } from "@/helpers/ipfs-helpers";
+import { CoreFile, RawFile } from "@/types/core";
 
 type FileMetadata = {
   name: string;
@@ -21,21 +20,27 @@ function extractFileObject(file: File): FileMetadata {
 }
 
 const fileService = {
-  async create(
-    raw: RawHTTPFile,
-    onProgress: (progress: number) => void,
-  ): Promise<CoreFile | null> {
+  async create(raw: RawFile): Promise<CoreFile | null> {
     try {
-      const cid = await uploadFileToIPFS(raw.file);
+      const cid = await window.ipfs.store(
+        await raw.file.arrayBuffer(),
+        (progress: number) => {},
+      );
       if (cid) {
-        onProgress(80);
         const metadata = extractFileObject(raw.file);
         const createdFile = await FileData.store(
           { cid: cid, metadata },
-          (progress) => onProgress(80 + progress * 0.2),
+          (progress) =>
+            window.download.add({
+              index: downloadIndex,
+              progress: 95,
+            }),
         );
-        onProgress(100);
-        console.log(createdFile);
+        window.download.add({
+          index: downloadIndex,
+          progress: 100,
+        });
+
         return createdFile;
       }
       return null;

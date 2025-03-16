@@ -11,11 +11,9 @@ import {
 import {
   AlertCircle,
   Archive,
-  Check,
   File,
   FileText,
   FileType,
-  Folder,
   Music,
   Package,
   Rows2,
@@ -37,10 +35,8 @@ import AppTooltip from "@/components/app-tooltip";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -232,26 +228,16 @@ const ShareButton = () => {
 
       const formValues = form.getValues();
 
-      const createdFile = await fileService.create(
-        {
-          file: formValues.file[0],
-          visibility: formValues.visibility,
-          description: formValues.description,
-        },
-        (progress) => {
-          setUploadProgress(progress);
-        },
-      );
-      if (createdFile) {
-        setUploadComplete(true);
-        // Reset form after successful upload (after 2 seconds)
-        setTimeout(() => {
-          form.reset();
-          resetUploadState();
-          setSingleUploaderDialogOpen(false);
-          toast("File shared successfully.");
-        }, 2000);
-      }
+      const createdFile = await fileService.create({
+        file: formValues.file[0],
+        visibility: formValues.visibility,
+        description: formValues.description,
+      });
+      setTimeout(() => {
+        form.reset();
+        resetUploadState();
+        setSingleUploaderDialogOpen(false);
+      }, 2000);
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Upload failed");
       setIsUploading(false);
@@ -412,7 +398,7 @@ const ShareButton = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Uploading...</span>
-                      <span>{uploadProgress.toFixed(2)}%</span>
+                      <span>{uploadProgress}%</span>
                     </div>
                     <Progress value={uploadProgress} className="h-2" />
                   </div>

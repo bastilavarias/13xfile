@@ -73,7 +73,41 @@ async function establishDHTRelayConnection() {
   }
 }
 
-// Main function to boot IPFS
+async function runCommandWithProgress(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  onProgress: (progress: number, message: string) => void,
+  startProgress: number,
+  endProgress: number,
+  taskName: string,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, { env });
+    let output = "";
+    child.stdout.on("data", (data) => {
+      output += data.toString();
+      const progress =
+        startProgress + Math.floor((endProgress - startProgress) * 0.5); // Example: 50% of the task
+      onProgress(progress, `${taskName} in progress...`);
+    });
+    child.stderr.on("data", (data) => {
+      console.error(`stderr: ${data}`);
+    });
+    child.on("close", (code) => {
+      if (code === 0) {
+        onProgress(endProgress, `${taskName} complete.`);
+        resolve();
+      } else {
+        reject(new Error(`${taskName} failed with code ${code}: ${output}`));
+      }
+    });
+    child.on("error", (error) => {
+      reject(error);
+    });
+  });
+}
+
 export async function bootIPFS() {
   try {
     await establishRepository();
@@ -85,25 +119,74 @@ export async function bootIPFS() {
   }
 }
 
-export async function uploadFile(file: ArrayBuffer): Promise<string | null> {
+export async function uploadFile(
+  file: ArrayBuffer,
+  onProgress: (progress: number, message: string) => void,
+): Promise<string | null> {
   try {
+    onProgress(10, "Starting upload process...");
+    onProgress(20, "Creating temporary file...");
     const tempDir = tmpdir();
     const tempFilePath = path.join(tempDir, "ipfs_upload");
     await fsPromises.writeFile(tempFilePath, Buffer.from(file));
-    const { stdout } = await execPromise(
-      BINARY_PATH,
-      ["add", "-q", tempFilePath],
-      { env: ENV },
-    );
+    onProgress(30, "Temporary file created.");
+    const fileSize = file.byteLength;
+    let uploadedSize = 0;
+    const addProcess = spawn(BINARY_PATH, ["add", "-q", tempFilePath], {
+      env: ENV,
+    });
+    addProcess.stdout.on("data", (data) => {
+      uploadedSize += data.length;
+      const progress = Math.round((uploadedSize / fileSize) * 100);
+      onProgress(30 + Math.floor(progress * 0.4), `Uploading: ${progress}%`); // Scale progress between 30% and 70%
+    });
+    addProcess.stderr.on("data", (data) => {
+      console.error(`stderr: ${data}`);
+    });
+    const stdout = await new Promise<string>((resolve, reject) => {
+      let stdoutData = "";
+      addProcess.stdout.on("data", (data) => {
+        stdoutData += data.toString();
+      });
+      addProcess.on("close", (code) => {
+        if (code === 0) {
+          resolve(stdoutData.trim());
+        } else {
+          reject(new Error(`IPFS add process failed with code ${code}`));
+        }
+      });
+      addProcess.on("error", (error) => {
+        reject(error);
+      });
+    });
+    onProgress(70, "File added to IPFS.");
     const cid = stdout.trim();
-    await execPromise(BINARY_PATH, ["routing", "provide", cid], { env: ENV });
-    await execPromise(BINARY_PATH, ["pin", "add", cid], { env: ENV });
-
+    await runCommandWithProgress(
+      BINARY_PATH,
+      ["routing", "provide", cid],
+      ENV,
+      onProgress,
+      70, // Start progress
+      80, // End progress
+      "Providing CID to the IPFS network",
+    );
+    await runCommandWithProgress(
+      BINARY_PATH,
+      ["pin", "add", cid],
+      ENV,
+      onProgress,
+      80,
+      95,
+      "Pinning file to IPFS",
+    );
+    onProgress(97, "Cleaning up temporary file...");
     await fsPromises.unlink(tempFilePath);
+    onProgress(100, "Upload complete!");
 
     return cid;
   } catch (error) {
     console.error("Error uploading file:", error);
+    onProgress(0, `Upload failed: Something went wrong.`);
     return null;
   }
 }
@@ -131,5 +214,3 @@ export function stopIpfs() {
     ipfsProcess = null;
   }
 }
-
-// @TODO: Separate the logics of upload, get, check functions may put it on helpers and use in services and put dht server congs in env andddd create lib folder and put this ipfs file on the lib.

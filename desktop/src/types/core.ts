@@ -8,7 +8,7 @@ export interface CoreFile {
   visibility?: string;
 }
 
-export type RawHTTPFile = {
+export type RawFile = {
   file: File;
   description: string;
   visibility: string;
@@ -20,3 +20,8 @@ export type FileMetadata = {
   extension: string;
   type: string;
 };
+
+export interface FileDownload extends CoreFile {
+  index?: number;
+  progress: number;
+}
