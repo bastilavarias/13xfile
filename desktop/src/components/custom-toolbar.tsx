@@ -50,8 +50,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/utils/tailwind";
+import { extractFileObject } from "@/helpers/file_helpers";
 
 interface CustomToolbarProps {
   viewMode: string;
@@ -187,9 +187,6 @@ export default function CustomToolbar({
 const ShareButton = () => {
   const [isSingleUploaderDialogOpen, setSingleUploaderDialogOpen] =
     useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadComplete, setUploadComplete] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -203,9 +200,6 @@ const ShareButton = () => {
   });
 
   const resetUploadState = () => {
-    setUploadProgress(0);
-    setIsUploading(false);
-    setUploadComplete(false);
     setUploadError("");
   };
 
@@ -218,28 +212,21 @@ const ShareButton = () => {
 
   const onFormSubmit = async () => {
     try {
-      setIsUploading(true);
-      setUploadProgress(0);
-      setUploadComplete(false);
       setUploadError("");
-
       const formValues = form.getValues();
-
-      const createdFile = await window.file.upload({
-        file: await formValues.file[0].arrayBuffer(),
+      const file = await formValues.file[0];
+      const metadata = extractFileObject(file);
+      window.file.upload({
+        file: await file.arrayBuffer(),
         visibility: formValues.visibility,
         description: formValues.description,
+        metadata,
       });
-      if (createdFile) {
-        setTimeout(() => {
-          form.reset();
-          resetUploadState();
-          setSingleUploaderDialogOpen(false);
-        }, 2000);
-      }
+      setSingleUploaderDialogOpen(false);
+      form.reset();
+      resetUploadState();
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Upload failed");
-      setIsUploading(false);
     }
   };
 
@@ -293,7 +280,6 @@ const ShareButton = () => {
                           ref={fileInputRef}
                           onChange={(e) => field.onChange(e.target.files)}
                           className="sr-only"
-                          disabled={isUploading}
                         />
                         <Label
                           htmlFor="file-upload"
@@ -314,7 +300,6 @@ const ShareButton = () => {
                             variant="ghost"
                             size="sm"
                             className="h-8"
-                            disabled={isUploading}
                           >
                             Browse
                           </Button>
@@ -335,7 +320,6 @@ const ShareButton = () => {
                         <RadioGroup
                           onValueChange={field.onChange}
                           defaultValue={field.value}
-                          disabled={isUploading}
                           className="flex space-y-1"
                         >
                           <FormItem className="flex items-center space-y-0">
@@ -371,7 +355,6 @@ const ShareButton = () => {
                         <Textarea
                           placeholder="Enter file description"
                           {...field}
-                          disabled={isUploading}
                           className={cn(
                             form.formState.errors.description
                               ? "border-destructive"
@@ -384,16 +367,6 @@ const ShareButton = () => {
                   )}
                 />
 
-                {isUploading && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Uploading...</span>
-                      <span>{uploadProgress}%</span>
-                    </div>
-                    <Progress value={uploadProgress} className="h-2" />
-                  </div>
-                )}
-
                 {uploadError && (
                   <div className="flex items-center gap-2 rounded-md bg-red-50 p-2 text-red-700 dark:bg-red-900/20 dark:text-red-400">
                     <AlertCircle className="h-4 w-4" />
@@ -404,14 +377,10 @@ const ShareButton = () => {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={form.formState.isSubmitting || isUploading}
+                  disabled={form.formState.isSubmitting}
                 >
                   <Upload className="mr-2 h-4 w-4" />
-                  {isUploading
-                    ? uploadComplete
-                      ? "Sharing..."
-                      : "Uploading..."
-                    : "Upload"}
+                  Upload
                 </Button>
               </form>
             </Form>

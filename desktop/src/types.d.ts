@@ -34,7 +34,7 @@ interface IPFSContext {
 
 interface FileContext {
   state: () => FileRepositoryState;
-  add: (file: RawFile) => CoreFile;
+  upload: (file: RawFile) => CoreFile;
 }
 
 declare interface Window {

@@ -1,7 +1,5 @@
-"use client";
-
 import React, { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, File, FileText, X } from "lucide-react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { cn } from "@/utils/tailwind";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -10,15 +8,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { FileRepositoryState } from "@/types/core";
-
-interface DownloadItem {
-  id: string;
-  name: string;
-  type: "document" | "pdf" | "image" | "video" | "audio" | "archive" | "other";
-  status: "complete" | "in-progress" | "error";
-  progress?: number;
-}
+import {
+  FileDownload,
+  FileRepositoryState,
+  FileTypeCategory,
+} from "@/types/core";
+import { getFileTypeCategoryIcon } from "@/utils/icon";
 
 interface DownloadTrayProps {
   className?: string;
@@ -26,13 +21,12 @@ interface DownloadTrayProps {
 
 export function DownloadTrayCard({ className }: DownloadTrayProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [fileState, setFileState] = useState({
-    downloads: [],
-  });
+  const [downloads, setDownloads] = useState<FileDownload[]>([]);
 
   useEffect(() => {
     window.file.onStateUpdate((state: FileRepositoryState) => {
-      console.log("On download start: ", state);
+      setDownloads(Object.assign(state.downloads));
+      setIsExpanded(true);
     });
   }, []);
 
@@ -79,52 +73,59 @@ export function DownloadTrayCard({ className }: DownloadTrayProps) {
         </CardHeader>
 
         <CollapsibleContent>
-          {/*<CardContent className="dark:bg-secondary p-0">*/}
-          {/*  <ul className="divide-y">*/}
-          {/*    {items.map((item) => (*/}
-          {/*      <li*/}
-          {/*        key={item.id}*/}
-          {/*        className="flex items-center gap-3 px-4 py-2.5"*/}
-          {/*      >*/}
-          {/*        <FileIcon type={item.type} />*/}
-          {/*        <div className="min-w-0 flex-1">*/}
-          {/*          <p className="truncate text-sm">{item.name}</p>*/}
-          {/*          {item.status === "in-progress" && (*/}
-          {/*            <div className="mt-1 h-1 w-full rounded-full bg-[#e8eaed]">*/}
-          {/*              <div*/}
-          {/*                className="h-1 rounded-full bg-blue-500"*/}
-          {/*                style={{ width: `${item.progress}%` }}*/}
-          {/*              />*/}
-          {/*            </div>*/}
-          {/*          )}*/}
-          {/*        </div>*/}
-          {/*        <StatusIcon status={item.status} />*/}
-          {/*      </li>*/}
-          {/*    ))}*/}
-          {/*  </ul>*/}
-          {/*</CardContent>*/}
+          <CardContent className="dark:bg-secondary p-0">
+            <ul className="divide-y">
+              {downloads.map((download: FileDownload) => (
+                <li
+                  key={download.index}
+                  className="flex items-center gap-3 px-4 py-2.5"
+                >
+                  <FileIcon category={download.category} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">{download.name}</p>
+                    <div className="mt-1 h-1 w-full rounded-full bg-[#e8eaed]">
+                      <div
+                        className="h-1 rounded-full bg-blue-500"
+                        style={{ width: `${download.progress}%` }}
+                      />
+                    </div>
+                    {/*{item.status === "in-progress" && (*/}
+                    {/*    <div className="mt-1 h-1 w-full rounded-full bg-[#e8eaed]">*/}
+                    {/*      <div*/}
+                    {/*          className="h-1 rounded-full bg-blue-500"*/}
+                    {/*          style={{width: `${item.progress}%`}}*/}
+                    {/*      />*/}
+                    {/*    </div>*/}
+                    {/*)}*/}
+                  </div>
+                  {/*<StatusIcon status={item.status} />*/}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
         </CollapsibleContent>
       </Collapsible>
     </Card>
   );
 }
 
-// function FileIcon({ type }: { type: DownloadItem["type"] }) {
-//   switch (type) {
-//     case "document":
-//       return <FileText className="h-5 w-5 text-[#5f6368]" />;
-//     case "pdf":
-//       return (
-//         <div className="flex h-5 w-5 items-center justify-center rounded-sm bg-[#ea4335] text-white">
-//           <FileText className="h-3.5 w-3.5" />
-//         </div>
-//       );
-//     case "archive":
-//       return <File className="h-5 w-5 text-[#5f6368]" />;
-//     default:
-//       return <File className="h-5 w-5 text-[#5f6368]" />;
-//   }
-// }
+function FileIcon({ category }: { category: FileTypeCategory }) {
+  const categoryIcon = getFileTypeCategoryIcon(category);
+  return (
+    <div
+      style={{
+        backgroundColor: categoryIcon.bgColor,
+      }}
+      className={cn(
+        "flex h-8 w-8 items-center justify-center rounded-md",
+        `bg-[${categoryIcon.bgColor}]`,
+      )}
+    >
+      <categoryIcon.icon className="h-4 w-4" color={categoryIcon.color} />
+    </div>
+  );
+}
+
 //
 // function StatusIcon({ status }: { status: DownloadItem["status"] }) {
 //   if (status === "complete") {

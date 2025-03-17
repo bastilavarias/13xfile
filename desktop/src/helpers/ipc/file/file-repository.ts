@@ -1,6 +1,16 @@
-import { FileMetadata, FileRepositoryState, RawFile } from "@/types/core";
+import {
+  FileDownload,
+  FileRepositoryState,
+  FileTypeCategory,
+  RawFile,
+} from "@/types/core";
 import { uploadFile as ipfsUploadFile } from "../../../lib/ipfs";
 import FileHTTP from "../../http/file";
+import {
+  convertArrayBufferToFile,
+  extractFileObject,
+} from "../../file_helpers";
+import http from "../../../lib/http";
 
 export const state: FileRepositoryState = {
   downloads: [],
@@ -11,47 +21,55 @@ export const uploadFile = async (
   onStateUpdate: (state: FileRepositoryState) => void,
 ) => {
   try {
+    const file = convertArrayBufferToFile(
+      rawFile.file,
+      rawFile.metadata.name,
+      rawFile.metadata.extension,
+    );
+    const metadata = extractFileObject(file);
     const downloadIndex = state.downloads.length + 1;
     state.downloads = [
       ...state.downloads,
       {
         index: downloadIndex,
         progress: 0,
-        ...rawFile,
+        name: metadata.name,
       },
     ];
+    onStateUpdate(state);
+    const fileCategory: FileTypeCategory = await http.get(
+      `/api/file/category?mimetype=${metadata.type}&extension=${metadata.extension}`,
+    );
+    state.downloads = updateDownload({
+      index: downloadIndex,
+      progress: 10,
+      progressMessage: "Fetching file category...",
+      category: fileCategory,
+    });
     onStateUpdate(state);
     const cid = await ipfsUploadFile(
       rawFile.file,
       (progress: number, progressMessage: string) => {
-        state.downloads = state.downloads.map((download) => {
-          if (downloadIndex === download.index) {
-            download.progress = progress;
-            download.progressMessage = progressMessage;
-          }
-
-          return download;
+        state.downloads = updateDownload({
+          index: downloadIndex,
+          progress: progress,
+          progressMessage: progressMessage,
         });
+        onStateUpdate(state);
       },
     );
     if (cid) {
-      const metadata = extractFileObject(rawFile.file);
-      const createdFile = await FileHTTP.store(
+      return await FileHTTP.store(
         { cid: cid, metadata },
         (progress: number, progressMessage: string) => {
-          state.downloads = state.downloads.map((download) => {
-            if (downloadIndex === download.index) {
-              download.progress = progress;
-              download.progressMessage = progressMessage;
-            }
-
-            return download;
+          state.downloads = updateDownload({
+            index: downloadIndex,
+            progress: progress,
+            progressMessage: progressMessage,
           });
+          onStateUpdate(state);
         },
       );
-
-      console.log(createdFile);
-      return createdFile;
     }
     return null;
   } catch (error) {
@@ -60,13 +78,23 @@ export const uploadFile = async (
   }
 };
 
-const extractFileObject = (file: File): FileMetadata => {
-  const name = file.name;
-  const size = file.size; // in bytes
-  const type = file.type || "Unknown"; // MIME type
-  const extension = name.includes(".")
-    ? name.split(".").pop() || "Unknown"
-    : "Unknown";
+const updateDownload = ({
+  index,
+  progress,
+  progressMessage,
+  category,
+}: FileDownload) => {
+  return state.downloads.map((download) => {
+    if (download.index === index) {
+      download = Object.assign({
+        ...download,
+        index,
+        progress,
+        progressMessage,
+        category: category ? category : download.category || null,
+      });
+    }
 
-  return { name, size, extension, type };
+    return download;
+  });
 };
