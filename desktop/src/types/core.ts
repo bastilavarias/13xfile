@@ -9,7 +9,7 @@ export interface CoreFile {
 }
 
 export type RawFile = {
-  file: File;
+  file: ArrayBuffer;
   description: string;
   visibility: string;
 };
@@ -21,7 +21,12 @@ export type FileMetadata = {
   type: string;
 };
 
-export interface FileDownload extends CoreFile {
+export interface FileDownload extends RawFile {
   index?: number;
   progress: number;
+  progressMessage?: string;
+}
+
+export interface FileRepositoryState {
+  downloads: Array<FileDownload>;
 }

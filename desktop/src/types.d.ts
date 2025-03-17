@@ -2,7 +2,7 @@
 // plugin that tells the Electron app where to look for the Vite-bundled app code (depending on
 // whether you're running in development or production).
 
-import { RawFile } from "@/types/core";
+import { CoreFile, FileRepositoryState, RawFile } from "@/types/core";
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -15,6 +15,13 @@ interface ThemeModeContext {
   system: () => Promise<boolean>;
   current: () => Promise<"dark" | "light" | "system">;
 }
+
+interface ElectronWindow {
+  minimize: () => Promise<void>;
+  maximize: () => Promise<void>;
+  close: () => Promise<void>;
+}
+
 interface IPFSContext {
   isRunning: () => boolean;
   store: (
@@ -24,19 +31,15 @@ interface IPFSContext {
   retrieve: (cid: string) => Promise<File>;
   checkStatus: (cid: string) => Promise<boolean>;
 }
-interface DownloadContext {
-  get: () => any;
-  add: (file: RawFile) => any;
-}
-interface ElectronWindow {
-  minimize: () => Promise<void>;
-  maximize: () => Promise<void>;
-  close: () => Promise<void>;
+
+interface FileContext {
+  state: () => FileRepositoryState;
+  add: (file: RawFile) => CoreFile;
 }
 
 declare interface Window {
   themeMode: ThemeModeContext;
   electronWindow: ElectronWindow;
   ipfs: IPFSContext;
-  download: DownloadContext;
+  file: FileContext;
 }

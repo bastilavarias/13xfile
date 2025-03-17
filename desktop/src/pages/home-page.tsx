@@ -7,7 +7,6 @@ import FileCard from "@/components/file-card";
 import FileTable from "@/components/file-table";
 import CustomToolbar from "@/components/custom-toolbar";
 import { CARD_VIEW_MODE, SORT_DESC } from "@/constants";
-import fileService from "@/services/file";
 import { CoreFile } from "@/types/core";
 
 export default function HomePage() {
@@ -30,8 +29,7 @@ export default function HomePage() {
       if (!shouldFetch) return;
 
       try {
-        const files = await fileService.list();
-        setFiles(files);
+        setFiles([]);
       } catch (error) {
         console.error("Failed to fetch files:", error);
       }

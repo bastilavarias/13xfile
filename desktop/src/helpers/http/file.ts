@@ -8,7 +8,7 @@ type CreateFileRequestPayload = {
 const FileData = {
   async store(
     payload: CreateFileRequestPayload,
-    onProgress: (progress: number) => void, // Progress callback
+    onProgress: (progress: number, progressMessage: string) => void, // Progress callback
   ): Promise<CoreFile | null> {
     try {
       return await new Promise((resolve, reject) => {
@@ -17,17 +17,18 @@ const FileData = {
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
-            onProgress(event.loaded / event.total);
+            onProgress(event.loaded / event.total, "N/A");
           }
         };
         xhr.onload = () => {
-          onProgress(1); // Mark as 100% complete
+          onProgress(1, "N/A"); // Mark as 100% complete
           resolve(JSON.parse(xhr.responseText));
         };
         xhr.onerror = reject;
         xhr.send(JSON.stringify(payload));
       });
     } catch (error) {
+      console.error(error);
       return null;
     }
   },
@@ -46,6 +47,7 @@ const FileData = {
 
       return response.json().then((data) => data.data);
     } catch (error) {
+      console.error(error);
       return [];
     }
   },

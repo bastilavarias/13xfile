@@ -14,5 +14,5 @@ export const getFileTypeCategoryIcon = (
       bgColor: "#f3f4f6",
       icon: Ban,
     }
-  ); // Default to black if not found
+  );
 };

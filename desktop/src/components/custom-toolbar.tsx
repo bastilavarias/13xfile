@@ -23,7 +23,6 @@ import {
   Table2,
   Upload,
   Video,
-  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -52,9 +51,7 @@ import {
 } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
-import fileService from "@/services/file";
 import { cn } from "@/utils/tailwind";
-import { toast } from "sonner";
 
 interface CustomToolbarProps {
   viewMode: string;
@@ -228,30 +225,23 @@ const ShareButton = () => {
 
       const formValues = form.getValues();
 
-      const createdFile = await fileService.create({
-        file: formValues.file[0],
+      const createdFile = await window.file.upload({
+        file: await formValues.file[0].arrayBuffer(),
         visibility: formValues.visibility,
         description: formValues.description,
       });
-      setTimeout(() => {
-        form.reset();
-        resetUploadState();
-        setSingleUploaderDialogOpen(false);
-      }, 2000);
+      if (createdFile) {
+        setTimeout(() => {
+          form.reset();
+          resetUploadState();
+          setSingleUploaderDialogOpen(false);
+        }, 2000);
+      }
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Upload failed");
       setIsUploading(false);
     }
   };
-
-  const folderForm = useForm<z.infer<typeof FormSchema>>({
-    resolver: zodResolver(FormSchema),
-    defaultValues: {
-      file: null,
-      description: "",
-      visibility: "public",
-    },
-  });
 
   return (
     <>

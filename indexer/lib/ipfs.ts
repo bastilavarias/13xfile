@@ -109,9 +109,10 @@ const initializeLibp2p = async (
     ],
     addresses: {
       listen: [
-        "/ip4/0.0.0.0/tcp/4001",
-        "/ip4/0.0.0.0/tcp/4002/ws",
-        "/ip4/0.0.0.0/udp/4001/webrtc-direct",
+        // Only change to a different port for development purposes only to fix the ports conflicts issue..
+        "/ip4/0.0.0.0/tcp/4005", // Make this port dynamic and default to 4001
+        "/ip4/0.0.0.0/tcp/4002/ws", // Make this port dynamic and default to 4002
+        "/ip4/0.0.0.0/udp/4001/webrtc-direct", // Make this port dynamic and default to 4001
         "/ip4/0.0.0.0/tcp/0",
         "/p2p-circuit",
       ],
@@ -143,6 +144,10 @@ const initializeHelia = async (libp2p: Libp2pInstance) => {
       console.log("Dialing back to peer...");
       await helia.libp2p.dial(peerId); // Connect back to them
       console.log("Successfully connected back to peer:", peerId.toString());
+      console.log(
+        "Peers: ",
+        helia.libp2p.getPeers().map((peer) => peer.toString()),
+      );
     } catch (error) {
       console.error("Failed to connect back:", error);
     }

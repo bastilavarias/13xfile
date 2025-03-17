@@ -17,7 +17,7 @@ const REPO_PATH = path.join(app.getPath("documents"), "ipfs-repo");
 const ENV = { ...process.env, IPFS_PATH: REPO_PATH };
 const DHT_IP = process.env.DHT_IP || "";
 const DHT_PEER_ID = process.env.DHT_PEER_ID || "";
-const DHT_MULTIADDR = `/ip4/${DHT_IP}/tcp/4001/p2p/${DHT_PEER_ID}`;
+const DHT_MULTIADDR = `/ip4/${DHT_IP}/tcp/4005/p2p/${DHT_PEER_ID}`;
 
 let ipfsProcess: ReturnType<typeof spawn> | null = null;
 
@@ -121,7 +121,7 @@ export async function bootIPFS() {
 
 export async function uploadFile(
   file: ArrayBuffer,
-  onProgress: (progress: number, message: string) => void,
+  onProgress: (progress: number, progressMessage: string) => void,
 ): Promise<string | null> {
   try {
     onProgress(10, "Starting upload process...");
