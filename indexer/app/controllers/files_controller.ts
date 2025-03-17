@@ -232,4 +232,22 @@ export default class FilesController {
       data: await File.all(),
     };
   }
+
+  async getCategory({ request, response }: HttpContext) {
+    try {
+      console.log(request.input("mimetype"), request.input("extension"));
+      const category = getFileCategory(
+        request.input("mimetype"),
+        request.input("extension"),
+      );
+
+      response.json({
+        data: category,
+      });
+    } catch (e) {
+      response.status(400).json({
+        data: null,
+      });
+    }
+  }
 }

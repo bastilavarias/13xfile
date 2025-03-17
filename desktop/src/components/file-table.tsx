@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CoreFile } from "@/types/core";
 import { cn } from "@/utils/tailwind";
-import { getFileTypeCategoryIcon } from "@/helpers/file_helpers";
+import { getFileTypeCategoryIcon } from "@/utils/icon";
 import { FileTypeCategoryIcon } from "@/types/color";
 
 // Define the props for the FileTable component

@@ -5,13 +5,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/tailwind";
 import { Badge } from "@/components/ui/badge";
-import { getFileTypeCategoryIcon } from "@/helpers/file_helpers";
+import { getFileTypeCategoryIcon } from "@/utils/icon";
 import { CoreFile } from "@/types/core";
 import AppTooltip from "@/components/app-tooltip";
 import { toast } from "sonner";
