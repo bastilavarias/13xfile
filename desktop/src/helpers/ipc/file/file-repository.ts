@@ -5,7 +5,6 @@ import {
   RawFile,
 } from "@/types/core";
 import { uploadFile as ipfsUploadFile } from "../../../lib/ipfs";
-import FileHTTP from "../../http/file";
 import {
   convertArrayBufferToFile,
   extractFileObject,
@@ -13,6 +12,7 @@ import {
 import http from "../../../lib/http";
 
 export const state: FileRepositoryState = {
+  files: [],
   downloads: [],
 };
 
@@ -20,6 +20,8 @@ export const uploadFile = async (
   rawFile: RawFile,
   onStateUpdate: (state: FileRepositoryState) => void,
 ) => {
+  const downloadIndex = state.downloads.length + 1;
+
   try {
     const file = convertArrayBufferToFile(
       rawFile.file,
@@ -27,19 +29,24 @@ export const uploadFile = async (
       rawFile.metadata.extension,
     );
     const metadata = extractFileObject(file);
-    const downloadIndex = state.downloads.length + 1;
-    state.downloads = [
-      ...state.downloads,
-      {
-        index: downloadIndex,
-        progress: 0,
-        name: metadata.name,
-      },
-    ];
+    state.downloads.push({
+      index: downloadIndex,
+      progressMessage: "Preparing your file...",
+      progress: 0,
+      name: metadata.name,
+      status: "in-progress",
+    });
     onStateUpdate(state);
-    const fileCategory: FileTypeCategory = await http.get(
-      `/api/file/category?mimetype=${metadata.type}&extension=${metadata.extension}`,
-    );
+    let fileCategory: string;
+    try {
+      const getFileCategoryResponse: FileTypeCategory = await http.get(
+        `/api/file/category?mimetype=${metadata.type}&extension=${metadata.extension}`,
+      );
+      const { data } = getFileCategoryResponse;
+      fileCategory = data || "unknown";
+    } catch (e) {
+      throw new Error("Cant get file category.");
+    }
     state.downloads = updateDownload({
       index: downloadIndex,
       progress: 10,
@@ -47,20 +54,11 @@ export const uploadFile = async (
       category: fileCategory,
     });
     onStateUpdate(state);
-    const cid = await ipfsUploadFile(
-      rawFile.file,
-      (progress: number, progressMessage: string) => {
-        state.downloads = updateDownload({
-          index: downloadIndex,
-          progress: progress,
-          progressMessage: progressMessage,
-        });
-        onStateUpdate(state);
-      },
-    );
-    if (cid) {
-      return await FileHTTP.store(
-        { cid: cid, metadata },
+    let cid: string;
+    try {
+      //@ts-ignore
+      cid = await ipfsUploadFile(
+        rawFile.file,
         (progress: number, progressMessage: string) => {
           state.downloads = updateDownload({
             index: downloadIndex,
@@ -70,10 +68,41 @@ export const uploadFile = async (
           onStateUpdate(state);
         },
       );
+    } catch (e) {
+      throw new Error("Cant upload file to the IPFS network.");
+    }
+    if (cid) {
+      try {
+        const { data } = await http.post("/api/file", {
+          cid: cid,
+          metadata,
+          category: fileCategory,
+        });
+        if (data) {
+          // @ts-ignore
+          state.files.push(data);
+          state.downloads = updateDownload({
+            index: downloadIndex,
+            progress: 100,
+            progressMessage: "File is ready to share!",
+            status: "done",
+          });
+          onStateUpdate(state);
+        }
+      } catch (e) {
+        throw new Error("Cant save the file to the indexer network.");
+      }
     }
     return null;
   } catch (error) {
     console.error("Upload failed:", error);
+    state.downloads = updateDownload({
+      index: downloadIndex,
+      progress: 0,
+      progressMessage: "Upload failed. Try again later.",
+      status: "error",
+    });
+    onStateUpdate(state);
     return null;
   }
 };
@@ -83,6 +112,7 @@ const updateDownload = ({
   progress,
   progressMessage,
   category,
+  status,
 }: FileDownload) => {
   return state.downloads.map((download) => {
     if (download.index === index) {
@@ -92,6 +122,7 @@ const updateDownload = ({
         progress,
         progressMessage,
         category: category ? category : download.category || null,
+        status: status ? status : download.status || null,
       });
     }
 

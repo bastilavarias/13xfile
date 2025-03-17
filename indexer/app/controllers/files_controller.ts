@@ -184,10 +184,19 @@ const getFileCategory = (mimeType: string, extension: string): string => {
   mimeType = mimeType.toLowerCase();
   extension = extension.toLowerCase();
   for (const [category, types] of Object.entries(MIME_GROUPS)) {
-    if (types.includes(mimeType)) {
-      return category;
+    if (mimeType.split("/").length === 2) {
+      if (types.includes(mimeType)) {
+        return category;
+      }
+    } else {
+      const filteredTypes = types.map((type) => type.split("/")[1]);
+      if (filteredTypes.includes(mimeType)) {
+        console.log("found it!");
+        return category;
+      }
     }
   }
+
   if (extension && EXTENSION_GROUPS[extension]) {
     return EXTENSION_GROUPS[extension];
   }
@@ -204,8 +213,7 @@ const createSlug = (filename: string) => {
 export default class FilesController {
   async create({ request, response }: HttpContext) {
     try {
-      const { cid, metadata } = request.all();
-      const category = getFileCategory(metadata.type, metadata.extension);
+      const { cid, metadata, category } = request.all();
       const slug = createSlug(metadata.name);
       const file = await File.create({
         cid,
@@ -235,11 +243,12 @@ export default class FilesController {
 
   async getCategory({ request, response }: HttpContext) {
     try {
-      console.log(request.input("mimetype"), request.input("extension"));
       const category = getFileCategory(
         request.input("mimetype"),
         request.input("extension"),
       );
+
+      console.log("selected category: ", category);
 
       response.json({
         data: category,

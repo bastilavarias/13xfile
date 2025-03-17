@@ -124,12 +124,10 @@ export async function uploadFile(
   onProgress: (progress: number, progressMessage: string) => void,
 ): Promise<string | null> {
   try {
-    onProgress(10, "Starting upload process...");
-    onProgress(20, "Creating temporary file...");
     const tempDir = tmpdir();
     const tempFilePath = path.join(tempDir, "ipfs_upload");
     await fsPromises.writeFile(tempFilePath, Buffer.from(file));
-    onProgress(30, "Temporary file created.");
+    onProgress(20, "Temporary file created...");
     const fileSize = file.byteLength;
     let uploadedSize = 0;
     const addProcess = spawn(BINARY_PATH, ["add", "-q", tempFilePath], {
@@ -159,7 +157,7 @@ export async function uploadFile(
         reject(error);
       });
     });
-    onProgress(70, "File added to IPFS.");
+    onProgress(70, "File adding to the IPFS network...");
     const cid = stdout.trim();
     await runCommandWithProgress(
       BINARY_PATH,
@@ -167,21 +165,20 @@ export async function uploadFile(
       ENV,
       onProgress,
       70, // Start progress
-      80, // End progress
-      "Providing CID to the IPFS network",
+      75, // End progress
+      "Providing CID to the IPFS network...",
     );
     await runCommandWithProgress(
       BINARY_PATH,
       ["pin", "add", cid],
       ENV,
       onProgress,
-      80,
-      95,
-      "Pinning file to IPFS",
+      75,
+      85,
+      "Pinning file to IPFS...",
     );
-    onProgress(97, "Cleaning up temporary file...");
     await fsPromises.unlink(tempFilePath);
-    onProgress(100, "Upload complete!");
+    onProgress(85, "Unlinking temporary file...");
 
     return cid;
   } catch (error) {

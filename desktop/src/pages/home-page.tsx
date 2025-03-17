@@ -7,7 +7,7 @@ import FileCard from "@/components/file-card";
 import FileTable from "@/components/file-table";
 import CustomToolbar from "@/components/custom-toolbar";
 import { CARD_VIEW_MODE, SORT_DESC } from "@/constants";
-import { CoreFile } from "@/types/core";
+import { CoreFile, FileRepositoryState } from "@/types/core";
 
 export default function HomePage() {
   const [viewMode, setViewMode] = useState(CARD_VIEW_MODE);
@@ -15,28 +15,12 @@ export default function HomePage() {
   const [files, setFiles] = useState<CoreFile[]>([]);
   const [shouldFetch, setShouldFetch] = useState(false);
 
-  // useEffect(() => {
-  //   async function initIPFS() {
-  //     const instance = isIPFSRunning();
-  //     setShouldFetch(instance);
-  //   }
-  //
-  //   initIPFS();
-  // }, []);
-
   useEffect(() => {
-    async function listFiles() {
-      if (!shouldFetch) return;
-
-      try {
-        setFiles([]);
-      } catch (error) {
-        console.error("Failed to fetch files:", error);
-      }
-    }
-
-    listFiles();
-  }, [shouldFetch]);
+    window.file.onStateUpdate((state: FileRepositoryState) => {
+      console.log(state.files);
+      setFiles(state.files);
+    });
+  }, []);
 
   return (
     <BaseLayout>
