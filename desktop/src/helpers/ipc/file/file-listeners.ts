@@ -1,6 +1,17 @@
 import { ipcMain } from "electron";
-import { FILE_ON_STATE_UPDATE, FILE_STATE, FILE_UPLOAD } from "./file-channels";
-import { state, uploadFile } from "./file-repository";
+import {
+  FILE_CHECK_STATUS,
+  FILE_LIST,
+  FILE_ON_STATE_UPDATE,
+  FILE_STATE,
+  FILE_UPLOAD,
+} from "./file-channels";
+import {
+  state,
+  uploadFile,
+  listFiles,
+  checkFileStatus,
+} from "./file-repository";
 import { FileRepositoryState, RawFile } from "@/types/core";
 
 /**
@@ -12,5 +23,10 @@ export function addFileEventListeners() {
     uploadFile(rawFile, (state: FileRepositoryState) =>
       _event.sender.send(FILE_ON_STATE_UPDATE, state),
     ),
+  );
+  ipcMain.handle(FILE_LIST, async () => await listFiles());
+  ipcMain.handle(
+    FILE_CHECK_STATUS,
+    async (_event, cid: string) => await checkFileStatus(cid),
   );
 }

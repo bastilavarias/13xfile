@@ -15,6 +15,7 @@ const BINARY_PATH = path.join(
 );
 const REPO_PATH = path.join(app.getPath("documents"), "ipfs-repo");
 const ENV = { ...process.env, IPFS_PATH: REPO_PATH };
+const devEnvironment = process.env.DEV_ENVIRONMENT || "development";
 const DHT_IP = process.env.DHT_IP || "";
 const DHT_PEER_ID = process.env.DHT_PEER_ID || "";
 const DHT_MULTIADDR = `/ip4/${DHT_IP}/tcp/4005/p2p/${DHT_PEER_ID}`;
@@ -168,15 +169,17 @@ export async function uploadFile(
       75, // End progress
       "Providing CID to the IPFS network...",
     );
-    await runCommandWithProgress(
-      BINARY_PATH,
-      ["pin", "add", cid],
-      ENV,
-      onProgress,
-      75,
-      85,
-      "Pinning file to IPFS...",
-    );
+    if (devEnvironment !== "development") {
+      await runCommandWithProgress(
+        BINARY_PATH,
+        ["pin", "add", cid],
+        ENV,
+        onProgress,
+        75,
+        85,
+        "Pinning file to IPFS...",
+      );
+    }
     await fsPromises.unlink(tempFilePath);
     onProgress(85, "Unlinking temporary file...");
 

@@ -191,7 +191,6 @@ const getFileCategory = (mimeType: string, extension: string): string => {
     } else {
       const filteredTypes = types.map((type) => type.split("/")[1]);
       if (filteredTypes.includes(mimeType)) {
-        console.log("found it!");
         return category;
       }
     }
@@ -247,8 +246,6 @@ export default class FilesController {
         request.input("mimetype"),
         request.input("extension"),
       );
-
-      console.log("selected category: ", category);
 
       response.json({
         data: category,

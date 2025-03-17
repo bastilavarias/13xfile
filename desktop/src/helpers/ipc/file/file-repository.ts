@@ -4,7 +4,10 @@ import {
   FileTypeCategory,
   RawFile,
 } from "@/types/core";
-import { uploadFile as ipfsUploadFile } from "../../../lib/ipfs";
+import {
+  uploadFile as ipfsUploadFile,
+  checkFileStatus as checkIPFSFileStatus,
+} from "../../../lib/ipfs";
 import {
   convertArrayBufferToFile,
   extractFileObject,
@@ -80,11 +83,11 @@ export const uploadFile = async (
         });
         if (data) {
           // @ts-ignore
-          state.files.push(data);
+          state.files = [data, ...state.files];
           state.downloads = updateDownload({
             index: downloadIndex,
             progress: 100,
-            progressMessage: "File is ready to share!",
+            progressMessage: "File is ready for sharing!",
             status: "done",
           });
           onStateUpdate(state);
@@ -105,6 +108,24 @@ export const uploadFile = async (
     onStateUpdate(state);
     return null;
   }
+};
+
+export const listFiles = async () => {
+  try {
+    const { data } = await http.get("/api/file");
+    if (data) {
+      // @ts-ignore
+      state.files = [...state.files, ...data];
+    }
+
+    return state.files;
+  } catch (e) {
+    return [];
+  }
+};
+
+export const checkFileStatus = async (cid: string) => {
+  return await checkIPFSFileStatus(cid);
 };
 
 const updateDownload = ({

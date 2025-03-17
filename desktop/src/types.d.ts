@@ -34,7 +34,9 @@ interface IPFSContext {
 
 interface FileContext {
   state: () => FileRepositoryState;
-  upload: (file: RawFile) => CoreFile;
+  upload: (file: RawFile) => Promise<CoreFile>;
+  list: () => Promise<CoreFile[]>;
+  checkStatus: (cid: string) => Promise<Boolean>;
 }
 
 declare interface Window {

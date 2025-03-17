@@ -28,7 +28,7 @@ interface DownloadTrayProps {
 }
 
 export function DownloadTrayCard({ className }: DownloadTrayProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [downloads, setDownloads] = useState<FileDownload[]>([]);
   const [theme, setTheme] = useState("");
 

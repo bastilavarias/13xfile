@@ -20,6 +20,14 @@ export default function HomePage() {
       console.log(state.files);
       setFiles(state.files);
     });
+
+    const getFiles = async () => {
+      const list = await window.file.list();
+      console.log(list);
+      setFiles(list);
+    };
+
+    getFiles();
   }, []);
 
   return (
