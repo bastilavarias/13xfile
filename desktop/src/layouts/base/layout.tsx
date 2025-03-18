@@ -73,14 +73,14 @@ export default function BaseLayout({
               links={[
                 {
                   title: "Library",
-                  label: "0",
+                  label: "",
                   icon: Library,
                   variant: "secondary",
                   href: "/",
                 },
                 {
                   title: "Hosted Files",
-                  label: "0",
+                  label: "",
                   icon: Server,
                   variant: "ghost",
                   href: "/hosted-files",

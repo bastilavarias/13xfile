@@ -26,6 +26,7 @@ export interface CoreFile {
   cid: string;
   category: FileTypeCategory;
   name: string;
+  description: string;
   slug: string;
   size: number;
   visibility?: string;

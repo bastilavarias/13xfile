@@ -17,6 +17,7 @@ router
       .group(() => {
         router.get("/", [FilesController, "index"]);
         router.post("/", [FilesController, "create"]);
+        router.get("/record/:slug", [FilesController, "getBySlug"]);
         router.get("/category", [FilesController, "getCategory"]);
       })
       .prefix("/file");

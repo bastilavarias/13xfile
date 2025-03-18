@@ -80,6 +80,7 @@ export const uploadFile = async (
           cid: cid,
           metadata,
           category: fileCategory,
+          description: rawFile.description,
         });
         if (data) {
           // @ts-ignore

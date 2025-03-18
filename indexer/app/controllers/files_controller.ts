@@ -2,6 +2,7 @@ import type { HttpContext } from "@adonisjs/core/http";
 import File from "#models/file";
 import { customAlphabet } from "nanoid";
 import slugify from "slugify";
+import { getInstance } from "../../lib/ipfs.js";
 
 const nanoid = customAlphabet(
   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
@@ -212,11 +213,12 @@ const createSlug = (filename: string) => {
 export default class FilesController {
   async create({ request, response }: HttpContext) {
     try {
-      const { cid, metadata, category } = request.all();
+      const { cid, metadata, category, description } = request.all();
       const slug = createSlug(metadata.name);
       const file = await File.create({
         cid,
         name: metadata.name,
+        description,
         slug,
         size: metadata.size,
         extension: metadata.extension,
@@ -252,6 +254,21 @@ export default class FilesController {
       });
     } catch (e) {
       response.status(400).json({
+        data: null,
+      });
+    }
+  }
+
+  async getBySlug({ params, response }: HttpContext) {
+    try {
+      const fileDB = await File.query().where("slug", params.slug).first();
+
+      response.json({
+        data: fileDB ?? null,
+      });
+    } catch (e) {
+      console.log(e);
+      response.json({
         data: null,
       });
     }

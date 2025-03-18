@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
-import { BaseModel, column } from "@adonisjs/lucid/orm";
+import { afterFind, BaseModel, column } from "@adonisjs/lucid/orm";
+import { getInstance } from "../../lib/ipfs.js";
 
 export default class File extends BaseModel {
   @column({ isPrimary: true })
@@ -16,6 +17,9 @@ export default class File extends BaseModel {
 
   @column()
   declare name: String;
+
+  @column()
+  declare description: String;
 
   @column()
   declare slug: String;

@@ -12,6 +12,7 @@ export default class extends BaseSchema {
       table.string("cid");
       table.string("slug");
       table.string("name");
+      table.text("description");
       table.integer("size");
       table.string("extension");
       table.string("type");
