@@ -1,25 +1,135 @@
 "use client";
 
 import Link from "next/link";
-import { Download, AlertTriangle, Calendar, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Download,
+  Calendar,
+  Users,
+  Heart,
+  MessageSquare,
+  Flag,
+  MoreHorizontal,
+  Share2,
+  Copy,
+  Facebook,
+  Twitter,
+  Shield,
+  CheckCircle,
+  Clock,
+  Eye,
+} from "lucide-react";
+import Image from "next/image";
+
+// UI Components
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Import your HTTP utility
 import http from "@/lib/http";
-import { useEffect, useState } from "react";
+
+// Comment type definition
+type Comment = {
+  id: string;
+  author: {
+    name: string;
+    avatar: string;
+    initials: string;
+  };
+  content: string;
+  date: string;
+  likes: number;
+  liked: boolean;
+};
 
 export default function FileDetailsSection() {
+  // File details state
   const [details, setDetails] = useState(null);
   const isOnline = true;
 
+  // Download state
+  const [downloadState, setDownloadState] = useState<
+    "idle" | "preparing" | "downloading" | "complete"
+  >("idle");
+  const [progress, setProgress] = useState(0);
+
+  // Comments state
+  const [comments, setComments] = useState<Comment[]>([
+    {
+      id: "1",
+      author: {
+        name: "Alex Johnson",
+        avatar: "",
+        initials: "AJ",
+      },
+      content: "Great image! Thanks for sharing this resource.",
+      date: "1 day ago",
+      likes: 5,
+      liked: false,
+    },
+    {
+      id: "2",
+      author: {
+        name: "Sam Taylor",
+        avatar: "",
+        initials: "ST",
+      },
+      content:
+        "I've been looking for something like this. The quality is excellent!",
+      date: "2 days ago",
+      likes: 3,
+      liked: false,
+    },
+  ]);
+  const [newComment, setNewComment] = useState("");
+  const [copied, setCopied] = useState(false);
+  const shareUrl = "https://13xfile.com/downloaded_image.jpg";
+
+  // Similar files data
+  const similarFiles = [
+    {
+      id: "1",
+      name: "landscape.jpg",
+      thumbnail: "/placeholder.svg?height=100&width=100",
+      type: "JPG",
+      size: "245 KB",
+    },
+    {
+      id: "2",
+      name: "profile.jpg",
+      thumbnail: "/placeholder.svg?height=100&width=100",
+      type: "JPG",
+      size: "189 KB",
+    },
+    {
+      id: "3",
+      name: "document.jpg",
+      thumbnail: "/placeholder.svg?height=100&width=100",
+      type: "JPG",
+      size: "320 KB",
+    },
+  ];
+
+  // Your existing functions
   const getFileDetails = async () => {
     try {
       const { data } = await http.get(
@@ -35,13 +145,43 @@ export default function FileDetailsSection() {
   };
 
   const onDownload = async () => {
-    try {
-      const response = await fetch(
-        `http://localhost:3333/api/ipfs/download/QmaXwVD8eCmABPKtGu7dC6szPxywjhuLotbdD3Qjuxasyt`,
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.statusText}`);
+    setDownloadState("preparing");
+    setProgress(0);
+
+    // Simulate preparing download
+    setTimeout(async () => {
+      setDownloadState("downloading");
+
+      try {
+        const response = await fetch(
+          `http://localhost:3333/api/ipfs/download/QmaXwVD8eCmABPKtGu7dC6szPxywjhuLotbdD3Qjuxasyt`,
+        );
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file: ${response.statusText}`);
+        }
+
+        // Simulate download progress
+        const interval = setInterval(() => {
+          setProgress((prev) => {
+            const newProgress = prev + Math.random() * 10;
+            if (newProgress >= 100) {
+              clearInterval(interval);
+              completeDownload(response);
+              return 100;
+            }
+            return newProgress;
+          });
+        }, 300);
+      } catch (error) {
+        console.error(error);
+        alert("Failed to download file. Please try again.");
+        setDownloadState("idle");
       }
+    }, 1500);
+  };
+
+  const completeDownload = async (response: Response) => {
+    try {
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -50,11 +190,17 @@ export default function FileDetailsSection() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-
       URL.revokeObjectURL(url);
+
+      setDownloadState("complete");
+      toast({
+        title: "Download complete",
+        description: "Your file has been downloaded successfully",
+      });
     } catch (error) {
       console.error(error);
       alert("Failed to download file. Please try again.");
+      setDownloadState("idle");
     }
   };
 
@@ -70,125 +216,461 @@ export default function FileDetailsSection() {
     }
   };
 
+  // Comment functions
+  const handleAddComment = () => {
+    if (!newComment.trim()) return;
+
+    const comment: Comment = {
+      id: Date.now().toString(),
+      author: {
+        name: "You",
+        avatar: "",
+        initials: "YO",
+      },
+      content: newComment,
+      date: "Just now",
+      likes: 0,
+      liked: false,
+    };
+
+    setComments([comment, ...comments]);
+    setNewComment("");
+  };
+
+  const handleLike = (id: string) => {
+    setComments(
+      comments.map((comment) => {
+        if (comment.id === id) {
+          return {
+            ...comment,
+            likes: comment.liked ? comment.likes - 1 : comment.likes + 1,
+            liked: !comment.liked,
+          };
+        }
+        return comment;
+      }),
+    );
+  };
+
+  // Share functions
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    toast({
+      title: "Link copied",
+      description: "The file link has been copied to your clipboard",
+    });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   useEffect(() => {
     getFileDetails();
   }, []);
 
+  // Mock data for when API hasn't loaded yet
+  const mockDetails = {
+    name: "downloaded_image.jpg",
+    type: "jpg",
+    category: "image",
+    size: 314470,
+    description:
+      "This is an image file uploaded 2 days ago. Add your description here to help others understand what this file contains.",
+  };
+
+  const fileDetails = details || mockDetails;
+
   return (
-    <>
-      {details && (
-        <section className="grid md:grid-cols-5 gap-10">
-          <Card className="mb-8 overflow-hidden col-span-3">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-2xl">{details.name}</CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-1">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>Uploaded 2 days ago</span>
-                    <Users className="h-3.5 w-3.5 ml-2" />
-                    <span>0 downloads</span>
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-
-            <Separator />
-
-            <CardContent className="space-y-10">
-              <div className="grid gap-4">
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">File Type</span>
-                    <span className="text-sm">
-                      {details.type} {details.category}
-                    </span>
+    <div>
+      {details ? (
+        <div className="grid gap-6 lg:grid-cols-3 lg:gap-10">
+          <div className="lg:col-span-2 space-y-6">
+            {/* File Details - Using your existing code structure */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-2xl">{details.name}</CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>Uploaded 2 days ago</span>
+                      <span className="text-muted-foreground">•</span>
+                      <Download className="h-3.5 w-3.5" />
+                      <span>0 downloads</span>
+                    </CardDescription>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Size</span>
-                    <span className="text-sm">{details.size}MB</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Uploaded</span>
-                    <span className="text-sm">2 days ago</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Downloads</span>
-                    <span className="text-sm">0</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm font-medium">Status</span>
-                    <Badge variant="secondary">
-                      <span
-                        className={`w-3 h-3 rounded-full ${
-                          isOnline ? "bg-green-500" : "bg-red-500"
-                        }`}
-                      ></span>
-                      {isOnline ? "Online" : "Offline"}
+                  <div className="flex gap-2">
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {details.category}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs lowercase">
+                      .{details.extension}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {formatFileSize(details.size)}
+                    </Badge>
+                    <Badge className="bg-green-500 text-xs text-white">
+                      Online
                     </Badge>
                   </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Description</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {details.description}
-                  </p>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="description" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="description">Description</TabsTrigger>
+                    <TabsTrigger value="details">Details</TabsTrigger>
+                    <TabsTrigger value="activity">Activity</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="description" className="pt-4  text-wrap">
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-wrap">
+                      <p className="break-words">{details.description}</p>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="details" className="pt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">File Type</p>
+                        <p className="text-sm text-muted-foreground">
+                          <span className="capitalize">{details.category}</span>{" "}
+                          /{" "}
+                          <span className="lowercase">
+                            .{details.extension}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Size</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatFileSize(details.size)}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Created</p>
+                        <p className="text-sm text-muted-foreground">
+                          March 15, 2024
+                        </p>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="activity" className="pt-4">
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-2">
+                        <Eye className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm">Viewed by anonymous user</p>
+                          <p className="text-xs text-muted-foreground">
+                            Today at 10:23 AM
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Download className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm">File uploaded</p>
+                          <p className="text-xs text-muted-foreground">
+                            2 days ago
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+
+            {/* Download Section - Enhanced UI with your functionality */}
+            <Card className="overflow-hidden border-2 border-primary/20">
+              <CardContent className="p-0">
+                <div className="bg-primary/5 p-6 flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="rounded-full bg-primary/10 p-3">
+                    <Download className="h-8 w-8 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">{fileDetails.name}</h2>
+                    <p className="text-muted-foreground mt-1">
+                      {fileDetails.type.toUpperCase()} •{" "}
+                      {formatFileSize(fileDetails.size)} • Uploaded 2 days ago
+                    </p>
+                  </div>
+
+                  {downloadState === "idle" && (
+                    <Button
+                      size="lg"
+                      className="mt-4 px-8 gap-2 bg-green-600 hover:bg-green-700 font-semibold dark:text-white"
+                      onClick={onDownload}
+                      disabled={!isOnline}
+                    >
+                      <Download className="h-5 w-5" />
+                      DOWNLOAD NOW
+                    </Button>
+                  )}
+
+                  {downloadState === "preparing" && (
+                    <div className="w-full max-w-md space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-primary">
+                        <Clock className="h-5 w-5 animate-pulse" />
+                        <span>Preparing download...</span>
+                      </div>
+                      <Progress value={15} className="h-2" />
+                    </div>
+                  )}
+
+                  {downloadState === "downloading" && (
+                    <div className="w-full max-w-md space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-primary">
+                        <Download className="h-5 w-5 animate-pulse" />
+                        <span>Downloading... {Math.round(progress)}%</span>
+                      </div>
+                      <Progress value={progress} className="h-2" />
+                    </div>
+                  )}
+
+                  {downloadState === "complete" && (
+                    <div className="w-full max-w-md space-y-4">
+                      <div className="flex items-center justify-center gap-2 text-green-500">
+                        <CheckCircle className="h-5 w-5" />
+                        <span>Download complete!</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="mt-2"
+                        onClick={() => setDownloadState("idle")}
+                      >
+                        Download Again
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Button
-                  size="lg"
-                  className="w-full gap-2 bg-green-600 hover:bg-green-700 font-semibold dark:text-white"
-                  disabled={!isOnline}
-                  onClick={onDownload}
-                >
-                  <Download className="h-8 w-8" strokeWidth={3} />
-                  DOWNLOAD NOW
-                </Button>
+                <div className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Shield className="h-4 w-4" />
+                    <span>Virus scanned. Safe to download.</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      Report Issue
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                <Button variant="outline" className="w-full gap-2">
-                  Preview
-                </Button>
-              </div>
+            {/* Comment Section */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Comments ({comments.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <Avatar>
+                      <AvatarFallback>YO</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-2">
+                      <Textarea
+                        placeholder="Add a comment..."
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        className="resize-none"
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={handleAddComment}
+                          disabled={!newComment.trim()}
+                        >
+                          Post Comment
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
 
-              <CardFooter className="justify-end items-center px-0">
-                <Link
-                  href="/report"
-                  className="text-sm text-muted-foreground hover:text-primary hover:underline"
-                >
-                  Report Issue
-                </Link>
-              </CardFooter>
-            </CardContent>
-          </Card>
+                  <div className="space-y-4 mt-6">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="flex gap-3">
+                        <Avatar>
+                          <AvatarImage src={comment.author.avatar} />
+                          <AvatarFallback>
+                            {comment.author.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {comment.author.name}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {comment.date}
+                              </span>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">More</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Flag className="mr-2 h-4 w-4" />
+                                  Report
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          <p className="mt-1 text-sm">{comment.content}</p>
+                          <div className="mt-2 flex items-center gap-4">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 px-2 text-muted-foreground"
+                              onClick={() => handleLike(comment.id)}
+                            >
+                              <Heart
+                                className={`h-4 w-4 ${comment.liked ? "fill-red-500 text-red-500" : ""}`}
+                              />
+                              <span>{comment.likes}</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 px-2 text-muted-foreground"
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                              Reply
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Warning Card */}
-          <Card className="mb-8 border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-900/20 col-span-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
-                <AlertTriangle className="h-5 w-5" />
-                Download Safety
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-amber-800 dark:text-amber-300">
-              <p className="mb-3 font-medium">
-                All downloads happen in this window
-              </p>
-              <div className="space-y-2">
-                <p className="text-sm">
-                  If you see any &#34;Download&#34; buttons in ads, be smart:
-                </p>
-                <ul className="ml-6 list-disc text-sm space-y-1">
-                  <li>Close that and come back here</li>
-                  <li>Real files are big, ads are tiny (just MBs)</li>
-                  <li>Our download buttons are clearly marked with our logo</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* File Stats */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  File Statistics
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Views</span>
+                    </div>
+                    <span className="font-medium">24</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Download className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Downloads</span>
+                    </div>
+                    <span className="font-medium">0</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Share2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Shares</span>
+                    </div>
+                    <span className="font-medium">3</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Uploaded</span>
+                    </div>
+                    <span className="font-medium">2 days ago</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Share Buttons */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Share This File
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex space-x-2">
+                  <Input value={shareUrl} readOnly className="text-xs" />
+                  <Button size="sm" variant="outline" onClick={handleCopy}>
+                    {copied ? "Copied" : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <Facebook className="mr-2 h-4 w-4" />
+                    Facebook
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <Twitter className="mr-2 h-4 w-4" />
+                    Twitter
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <Link href="#" className="mr-2 h-4 w-4" />
+                    Direct
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Similar Files */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Similar Files
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {similarFiles.map((file) => (
+                    <Link href="#" key={file.id}>
+                      <div className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-muted">
+                        <div className="relative h-10 w-10 overflow-hidden rounded-md border">
+                          <Image
+                            src={file.thumbnail || "/placeholder.svg"}
+                            alt={file.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="truncate text-sm font-medium">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {file.type} • {file.size}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        <div></div>
       )}
-    </>
+    </div>
   );
 }

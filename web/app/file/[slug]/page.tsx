@@ -6,9 +6,9 @@ export default function FilePage() {
   return (
     <ThemeProvider>
       <AppNavbar></AppNavbar>
-      <div className="container py-20 md:py-28 space-y-10">
+      <section className="container py-10 md:py-12 lg:py-14 xl:py-16 space-y-10">
         <FileDetailsSection />
-      </div>
+      </section>
     </ThemeProvider>
   );
 }
