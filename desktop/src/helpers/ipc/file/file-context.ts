@@ -8,7 +8,7 @@ import {
 import { FileRepositoryState, RawFile } from "@/types/core";
 
 export function exposeFileContext() {
-  const { contextBridge, ipcRenderer } = window.require("electron");
+  const { contextBridge, ipcRenderer, shell } = window.require("electron");
   contextBridge.exposeInMainWorld("file", {
     state: ipcRenderer.invoke(FILE_STATE),
     upload: async (rawFile: RawFile) =>
@@ -16,6 +16,8 @@ export function exposeFileContext() {
     list: async () => await ipcRenderer.invoke(FILE_LIST),
     checkStatus: async (cid: string) =>
       await ipcRenderer.invoke(FILE_CHECK_STATUS, cid),
+
+    openExternal: (url: string) => shell.openExternal(url),
 
     onStateUpdate: (callback: (state: FileRepositoryState) => void) =>
       ipcRenderer.on(

@@ -22,26 +22,21 @@ interface ElectronWindow {
   close: () => Promise<void>;
 }
 
-interface IPFSContext {
-  isRunning: () => boolean;
-  store: (
-    file: ArrayBuffer,
-    onProgress: (progress: number) => void,
-  ) => Promise<string>;
-  retrieve: (cid: string) => Promise<File>;
-  checkStatus: (cid: string) => Promise<boolean>;
+interface EnvironmentVariableContext {
+  apiBaseUrl: string;
 }
 
 interface FileContext {
   state: () => FileRepositoryState;
   upload: (file: RawFile) => Promise<CoreFile>;
   list: () => Promise<CoreFile[]>;
-  checkStatus: (cid: string) => Promise<Boolean>;
+  checkStatus: (cid: string) => Promise<boolean>;
+  openWeb: (cid: string) => any;
 }
 
 declare interface Window {
+  envVariable: EnvironmentVariableContext;
   themeMode: ThemeModeContext;
   electronWindow: ElectronWindow;
-  ipfs: IPFSContext;
   file: FileContext;
 }

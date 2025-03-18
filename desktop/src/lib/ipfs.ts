@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 import { spawn, execFile } from "child_process";
 import { tmpdir } from "os";
 import path from "path";
@@ -5,7 +7,6 @@ import { app } from "electron";
 import { promisify } from "util";
 import { existsSync, mkdirSync, promises as fsPromises, unlinkSync } from "fs";
 
-require("dotenv").config();
 const execPromise = promisify(execFile);
 
 const BINARY_PATH = path.join(

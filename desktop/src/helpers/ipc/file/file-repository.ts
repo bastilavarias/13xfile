@@ -114,7 +114,6 @@ export const listFiles = async () => {
   try {
     const { data } = await http.get("/api/file");
     if (data) {
-      // @ts-ignore
       state.files = [...state.files, ...data];
     }
 

@@ -13,17 +13,14 @@ export default function HomePage() {
   const [viewMode, setViewMode] = useState(CARD_VIEW_MODE);
   const [sort, setSort] = useState(SORT_DESC);
   const [files, setFiles] = useState<CoreFile[]>([]);
-  const [shouldFetch, setShouldFetch] = useState(false);
 
   useEffect(() => {
     window.file.onStateUpdate((state: FileRepositoryState) => {
-      console.log(state.files);
       setFiles(state.files);
     });
 
     const getFiles = async () => {
       const list = await window.file.list();
-      console.log(list);
       setFiles(list);
     };
 
@@ -41,10 +38,6 @@ export default function HomePage() {
           <Tabs defaultValue="public" className="space-y-4">
             <TabsList>
               <TabsTrigger value="public">Public</TabsTrigger>
-              <TabsTrigger value="shared">
-                <Users />
-                Shared with me
-              </TabsTrigger>
               <TabsTrigger value="favorites">
                 <Heart />
                 Favorites
@@ -69,6 +62,7 @@ export default function HomePage() {
                     key={index}
                     cid={file.cid}
                     name={file.name}
+                    slug={file.slug}
                     category={file.category}
                     size={file.size}
                   />

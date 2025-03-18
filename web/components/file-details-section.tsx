@@ -12,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 
 export default function FileDetailsSection() {
   const isOnline = true;
@@ -78,17 +77,6 @@ export default function FileDetailsSection() {
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Downloads</span>
                 <span className="text-sm">0</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium">Status</span>
-                <Badge variant="secondary">
-                  <span
-                    className={`w-3 h-3 rounded-full ${
-                      isOnline ? "bg-green-500" : "bg-red-500"
-                    }`}
-                  ></span>
-                  {isOnline ? "Online" : "Offline"}
-                </Badge>
               </div>
             </div>
             <div>

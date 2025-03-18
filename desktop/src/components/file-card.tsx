@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { FileSearch, Globe2, Heart, Share, Share2 } from "lucide-react";
+import {
+  FileSearch,
+  Globe2,
+  Heart,
+  Loader2,
+  Share,
+  Share2,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,21 +26,22 @@ export default function FileCard({
   category = "default",
   cid,
   name,
+  slug,
   size,
   visibility,
 }: CoreFile) {
   const categoryIcon = getFileTypeCategoryIcon(category);
+  const [checking, setChecking] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
 
   useEffect(() => {
     async function checkFileAvailability() {
-      try {
-        const availability = await window.file.checkStatus(cid);
-        setIsOnline(availability);
-      } catch (error) {
-        setIsOnline(false);
-      }
+      setChecking(true);
+      const availability = await window.file.checkStatus(cid);
+      setIsOnline(availability);
+      setChecking(false);
     }
+
     checkFileAvailability();
   }, [cid]);
 
@@ -53,12 +61,17 @@ export default function FileCard({
     toast("File URL copied to clipboard.");
   };
 
-  const download = async () => {
+  const onDownload = async () => {
     try {
+      console.log("downloading");
     } catch (e) {
       console.log("Download error:");
       console.log(e);
     }
+  };
+
+  const onOpenWeb = async () => {
+    window.file.openExternal(`${window.envVariable.webBaseUrl}/file/${slug}`);
   };
 
   return (
@@ -83,10 +96,10 @@ export default function FileCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={onOpenWeb}>
                 Open in Web <Globe2 className="text-primary" />
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={download}>Download</DropdownMenuItem>
+              <DropdownMenuItem onClick={onDownload}>Download</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -104,14 +117,21 @@ export default function FileCard({
       </CardContent>
       <CardFooter className="px-3">
         <div className="flex-1">
-          <Badge variant="secondary">
-            <span
-              className={`h-3 w-3 rounded-full ${
-                isOnline ? "bg-green-500" : "bg-red-500"
-              }`}
-            ></span>
-            {isOnline ? "Online" : "Offline"}
-          </Badge>
+          {checking ? (
+            <small className="text-muted-foreground flex items-center gap-1">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking
+            </small>
+          ) : (
+            <Badge variant="secondary">
+              <span
+                className={`h-3 w-3 rounded-full ${
+                  isOnline ? "bg-green-500" : "bg-red-500"
+                }`}
+              ></span>
+              {isOnline ? "Online" : "Offline"}
+            </Badge>
+          )}
         </div>
         <div className="flex items-center justify-end">
           <AppTooltip label="Share">
