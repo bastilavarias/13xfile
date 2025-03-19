@@ -146,6 +146,8 @@ export default function FileDetailsSection() {
       setTimeout(() => {
         setDownloadState("redownload");
       }, 2000); // 2000ms = 2 seconds
+
+      // @TODO: Expirement on how to optimize this try with helia browser.
     }
   };
 
