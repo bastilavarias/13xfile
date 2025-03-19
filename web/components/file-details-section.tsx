@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Download,
   Calendar,
-  Users,
   Heart,
   MessageSquare,
   Flag,
@@ -14,7 +14,6 @@ import {
   Copy,
   Facebook,
   Twitter,
-  Shield,
   CheckCircle,
   Clock,
   Eye,
@@ -43,11 +42,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toZonedTime } from "date-fns-tz";
+import { formatDistanceToNow, format } from "date-fns";
 
-// Import your HTTP utility
 import http from "@/lib/http";
 
-// Comment type definition
 type Comment = {
   id: string;
   author: {
@@ -62,7 +61,7 @@ type Comment = {
 };
 
 export default function FileDetailsSection() {
-  // File details state
+  const params = useParams<{ slug: string }>();
   const [details, setDetails] = useState(null);
   const isOnline = true;
 
@@ -132,9 +131,7 @@ export default function FileDetailsSection() {
   // Your existing functions
   const getFileDetails = async () => {
     try {
-      const { data } = await http.get(
-        `/api/file/record/downloadedimagejpg-LAB4jca3Sq`,
-      );
+      const { data } = await http.get(`/api/file/record/${params.slug}`);
       if (data) {
         setDetails(data);
       }
@@ -216,6 +213,16 @@ export default function FileDetailsSection() {
     }
   };
 
+  const formatDate = (utcTimestamp: string, type: string = "standard") => {
+    const timeZone = "Asia/Manila";
+    const localTime = toZonedTime(utcTimestamp, timeZone);
+    if (type === "relative") {
+      return formatDistanceToNow(localTime, { addSuffix: true });
+    }
+
+    return format(localTime, "MMMM d, yyyy - h:mm a");
+  };
+
   // Comment functions
   const handleAddComment = () => {
     if (!newComment.trim()) return;
@@ -292,10 +299,12 @@ export default function FileDetailsSection() {
                     <CardTitle className="text-2xl">{details.name}</CardTitle>
                     <CardDescription className="flex items-center gap-2 mt-1">
                       <Calendar className="h-3.5 w-3.5" />
-                      <span>Uploaded 2 days ago</span>
+                      <span>
+                        Uploaded {formatDate(details.createdAt, "relative")}
+                      </span>
                       <span className="text-muted-foreground">•</span>
                       <Download className="h-3.5 w-3.5" />
-                      <span>0 downloads</span>
+                      <span>{details.downloadsView} downloads</span>
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
@@ -347,7 +356,7 @@ export default function FileDetailsSection() {
                       <div className="space-y-1">
                         <p className="text-sm font-medium">Created</p>
                         <p className="text-sm text-muted-foreground">
-                          March 15, 2024
+                          {formatDate(details.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -357,9 +366,9 @@ export default function FileDetailsSection() {
                       <div className="flex items-start gap-2">
                         <Eye className="h-4 w-4 mt-0.5 text-muted-foreground" />
                         <div>
-                          <p className="text-sm">Viewed by anonymous user</p>
+                          <p className="text-sm">Last seen</p>
                           <p className="text-xs text-muted-foreground">
-                            Today at 10:23 AM
+                            {formatDate(details.createdAt, "relative")}
                           </p>
                         </div>
                       </div>
@@ -368,7 +377,7 @@ export default function FileDetailsSection() {
                         <div>
                           <p className="text-sm">File uploaded</p>
                           <p className="text-xs text-muted-foreground">
-                            2 days ago
+                            {formatDate(details.createdAt, "relative")}
                           </p>
                         </div>
                       </div>
@@ -389,7 +398,8 @@ export default function FileDetailsSection() {
                     <h2 className="text-2xl font-bold">{fileDetails.name}</h2>
                     <p className="text-muted-foreground mt-1">
                       {fileDetails.type.toUpperCase()} •{" "}
-                      {formatFileSize(fileDetails.size)} • Uploaded 2 days ago
+                      {formatFileSize(fileDetails.size)} •{" "}
+                      {formatDate(details.createdAt, "relative")}
                     </p>
                   </div>
 
@@ -444,10 +454,7 @@ export default function FileDetailsSection() {
                 </div>
 
                 <div className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Shield className="h-4 w-4" />
-                    <span>Virus scanned. Safe to download.</span>
-                  </div>
+                  <div />
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm">
                       Report Issue
@@ -574,21 +581,25 @@ export default function FileDetailsSection() {
                       <Eye className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">Views</span>
                     </div>
-                    <span className="font-medium">24</span>
+                    <span className="font-medium">{details.viewsCount}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Download className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">Downloads</span>
                     </div>
-                    <span className="font-medium">0</span>
+                    <span className="font-medium">
+                      {details.downloadsCount}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Share2 className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">Shares</span>
                     </div>
-                    <span className="font-medium">3</span>
+                    <span className="font-medium">
+                      {details.downloadsCount}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

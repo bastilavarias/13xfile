@@ -2,7 +2,7 @@ import type { HttpContext } from "@adonisjs/core/http";
 import File from "#models/file";
 import { customAlphabet } from "nanoid";
 import slugify from "slugify";
-import { getInstance } from "../../lib/ipfs.js";
+import FileActivity from "#models/file_activity";
 
 const nanoid = customAlphabet(
   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
@@ -181,6 +181,12 @@ const EXTENSION_GROUPS: { [key: string]: string } = {
   go: "script",
 };
 
+enum FileActions {
+  VIEW = "view",
+  SHARE = "share",
+  DOWNLOAD = "download",
+}
+
 const getFileCategory = (mimeType: string, extension: string): string => {
   mimeType = mimeType.toLowerCase();
   extension = extension.toLowerCase();
@@ -261,10 +267,46 @@ export default class FilesController {
 
   async getBySlug({ params, response }: HttpContext) {
     try {
-      const fileDB = await File.query().where("slug", params.slug).first();
+      const fileDB = await File.query()
+        .withCount("views")
+        .withCount("shares")
+        .withCount("downloads")
+        .where("slug", params.slug)
+        .first();
+      let file;
+      if (fileDB) {
+        file = Object.assign({}, fileDB.toJSON());
+        file.viewsCount = fileDB.$extras.views_count;
+        file.downloadsCount = fileDB.$extras.downloads_count;
+        file.sharesCount = fileDB.$extras.shares_count;
+      }
 
       response.json({
-        data: fileDB ?? null,
+        data: file || null,
+      });
+    } catch (e) {
+      console.log(e);
+      response.json({
+        data: null,
+      });
+    }
+  }
+
+  async addActivity({ request, response }: HttpContext) {
+    try {
+      const action = (
+        request.input("action") as string
+      ).toUpperCase() as keyof typeof FileActions;
+      let activity = null;
+      if (action && action in FileActions) {
+        activity = await FileActivity.create({
+          fileId: request.input("file_id"),
+          action: action,
+        });
+      }
+
+      response.json({
+        data: activity || null,
       });
     } catch (e) {
       console.log(e);

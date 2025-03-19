@@ -171,5 +171,3 @@ export async function stopIPFS() {
     await libp2pInstance.stop();
   }
 }
-
-// @TODO: Separate the logics of upload, get, check functions may put it on helpers and use in services and put dht server congs in env.

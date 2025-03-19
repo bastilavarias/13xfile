@@ -120,6 +120,7 @@ export const listFiles = async () => {
 
     return state.files;
   } catch (e) {
+    console.error(e);
     return [];
   }
 };
@@ -127,6 +128,25 @@ export const listFiles = async () => {
 export const checkFileStatus = async (cid: string) => {
   return await checkIPFSFileStatus(cid);
 };
+
+export const addActivity = async (fileID: number, action: string) => {
+  try {
+    const { data } = await http.post("/api/file/activity", {
+      file_id: fileID,
+      action,
+    });
+    if (data) {
+      return data;
+    }
+
+    return null;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
+
+// @TODO: Add & Get activities and display it on the web page.
 
 const updateDownload = ({
   index,

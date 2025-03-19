@@ -19,6 +19,7 @@ router
         router.post("/", [FilesController, "create"]);
         router.get("/record/:slug", [FilesController, "getBySlug"]);
         router.get("/category", [FilesController, "getCategory"]);
+        router.post("/activity", [FilesController, "addActivity"]);
       })
       .prefix("/file");
 

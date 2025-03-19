@@ -1,6 +1,13 @@
 import { DateTime } from "luxon";
-import { afterFind, BaseModel, column } from "@adonisjs/lucid/orm";
-import { getInstance } from "../../lib/ipfs.js";
+import {
+  BaseModel,
+  column,
+  computed,
+  hasMany,
+  hasOne,
+} from "@adonisjs/lucid/orm";
+import FileActivity from "#models/file_activity";
+import * as relations from "@adonisjs/lucid/types/relations";
 
 export default class File extends BaseModel {
   @column({ isPrimary: true })
@@ -35,4 +42,19 @@ export default class File extends BaseModel {
 
   @column()
   declare category: String;
+
+  @hasMany(() => FileActivity, {
+    onQuery: (query) => query.where("action", "view"),
+  })
+  declare views: relations.HasMany<typeof FileActivity>;
+
+  @hasMany(() => FileActivity, {
+    onQuery: (query) => query.where("action", "share"),
+  })
+  declare shares: relations.HasMany<typeof FileActivity>;
+
+  @hasMany(() => FileActivity, {
+    onQuery: (query) => query.where("action", "download"),
+  })
+  declare downloads: relations.HasMany<typeof FileActivity>;
 }

@@ -67,7 +67,7 @@
     "@libp2p/websockets": "^9.2.7",
     "@libp2p/webtransport": "^5.0.36",
     "@multiformats/multiaddr": "^12.4.0",
-    "@vinejs/vine": "^3.0.0",
+    "@vinejs/vine": "^3.0.1",
     "better-sqlite3": "^11.8.1",
     "helia": "^5.3.0",
     "libp2p": "^2.8.1",
