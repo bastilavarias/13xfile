@@ -115,7 +115,11 @@ export const listFiles = async () => {
   try {
     const { data } = await http.get("/api/file");
     if (data) {
-      state.files = [...state.files, ...data];
+      state.files = [
+        ...new Map(
+          [...state.files, ...data].map((file) => [file.id, file]),
+        ).values(),
+      ];
     }
 
     return state.files;
@@ -127,23 +131,6 @@ export const listFiles = async () => {
 
 export const checkFileStatus = async (cid: string) => {
   return await checkIPFSFileStatus(cid);
-};
-
-export const addActivity = async (fileID: number, action: string) => {
-  try {
-    const { data } = await http.post("/api/file/activity", {
-      file_id: fileID,
-      action,
-    });
-    if (data) {
-      return data;
-    }
-
-    return null;
-  } catch (e) {
-    console.error(e);
-    return null;
-  }
 };
 
 // @TODO: Add & Get activities and display it on the web page.

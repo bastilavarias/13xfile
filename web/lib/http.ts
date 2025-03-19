@@ -38,20 +38,20 @@ const http = {
     }
   },
 
-  get<T>(endpoint: string): Promise<T> {
-    return http.request<T>(endpoint, "GET");
+  async get<T>(endpoint: string): Promise<T> {
+    return await http.request<T>(endpoint, "GET");
   },
 
-  post<T>(endpoint: string, body: any): Promise<T> {
-    return http.request<T>(endpoint, "POST", body);
+  async post<T>(endpoint: string, body: any): Promise<T> {
+    return await http.request<T>(endpoint, "POST", body);
   },
 
-  put<T>(endpoint: string, body: any): Promise<T> {
-    return http.request<T>(endpoint, "PUT", body);
+  async put<T>(endpoint: string, body: any): Promise<T> {
+    return await http.request<T>(endpoint, "PUT", body);
   },
 
-  delete<T>(endpoint: string): Promise<T> {
-    return http.request<T>(endpoint, "DELETE");
+  async delete<T>(endpoint: string): Promise<T> {
+    return await http.request<T>(endpoint, "DELETE");
   },
 };
 

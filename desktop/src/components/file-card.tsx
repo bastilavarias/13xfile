@@ -35,12 +35,12 @@ export default function FileCard({
   const [isOnline, setIsOnline] = useState(false);
 
   useEffect(() => {
-    async function checkFileAvailability() {
+    const checkFileAvailability = async () => {
       setChecking(true);
       const availability = await window.file.checkStatus(cid);
       setIsOnline(availability);
       setChecking(false);
-    }
+    };
 
     checkFileAvailability();
   }, [cid]);
@@ -106,7 +106,7 @@ export default function FileCard({
         <div>
           <h3 className="mt-3 truncate text-sm font-medium">{name}</h3>
           <p className="text-muted-foreground truncate text-xs">
-            {formatFileSize(size)} MB | Nov 12 2023
+            {formatFileSize(size)} | Nov 12 2023
           </p>
         </div>
         {visibility && (

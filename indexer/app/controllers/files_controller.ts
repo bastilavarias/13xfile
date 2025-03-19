@@ -294,14 +294,15 @@ export default class FilesController {
 
   async addActivity({ request, response }: HttpContext) {
     try {
-      const action = (
+      const { file_id, action } = request.all();
+      const actionType = (
         request.input("action") as string
       ).toUpperCase() as keyof typeof FileActions;
       let activity = null;
-      if (action && action in FileActions) {
+      if (action && actionType in FileActions) {
         activity = await FileActivity.create({
-          fileId: request.input("file_id"),
-          action: action,
+          fileId: file_id,
+          action,
         });
       }
 

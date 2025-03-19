@@ -16,10 +16,12 @@ export default class IPFSController {
       );
       response.header("Content-Type", "application/octet-stream");
 
-      response.send(fileData);
+      response.json({
+        data: fileData,
+      });
     } catch (error) {
       console.error(error);
-      return response.status(500).send({ error: error.message });
+      return response.status(500).json({ error: error.message });
     }
   }
 }
