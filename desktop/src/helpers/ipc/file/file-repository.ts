@@ -133,8 +133,6 @@ export const checkFileStatus = async (cid: string) => {
   return await checkIPFSFileStatus(cid);
 };
 
-// @TODO: Add & Get activities and display it on the web page.
-
 const updateDownload = ({
   index,
   progress,

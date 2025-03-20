@@ -27,6 +27,8 @@ import {
   ActivityAction,
 } from "@/types/file_type";
 import { addFileActivity, getDownloadFile } from "@/repository/file_repository";
+import { bootIPFS, getInstance } from "@/lib/ipfs";
+import { CID } from "multiformats";
 
 interface FileDetails {
   id: number;
@@ -127,27 +129,56 @@ export default function FileDetailsSection() {
   };
 
   const onDownload = async () => {
-    if (fileDetails?.cid) {
-      setDownloadState("preparing");
-      const data = await getDownloadFile(fileDetails?.cid);
-      setDownloadState("downloading");
-      const uint8Array = new Uint8Array(data.data);
-      const blob = new Blob([uint8Array], { type: "application/octet-stream" }); // Create Blob
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileDetails.name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      setDownloadState("complete");
-      addActivity(ACTIVITY_DOWNLOAD_ACTION);
-      setTimeout(() => {
-        setDownloadState("redownload");
-      }, 2000); // 2000ms = 2 seconds
+    if (!fileDetails?.cid) return;
+    await checkProviders(fileDetails.cid);
+    // try {
+    //   const { fs } = await getInstance(); // Get Helia UnixFS instance
+    //   setDownloadState("preparing");
+    //   const chunks = [];
+    //   for await (const chunk of fs.cat(fileDetails.cid)) {
+    //     chunks.push(chunk);
+    //   }
+    //   setDownloadState("downloading");
+    //   const uint8Array = new Uint8Array(
+    //     chunks.reduce((acc, chunk) => [...acc, ...chunk], []),
+    //   );
+    //   const blob = new Blob([uint8Array], { type: "application/octet-stream" });
+    //   const url = URL.createObjectURL(blob);
+    //   const a = document.createElement("a");
+    //   a.href = url;
+    //   a.download = fileDetails.name || "downloaded-file";
+    //   document.body.appendChild(a);
+    //   a.click();
+    //   document.body.removeChild(a);
+    //   URL.revokeObjectURL(url);
+    //   setDownloadState("complete");
+    //   addActivity(ACTIVITY_DOWNLOAD_ACTION);
+    //   setTimeout(() => setDownloadState("redownload"), 2000);
+    // } catch (error) {
+    //   console.error("Download failed:", error);
+    //   setDownloadState("error");
+    // }
+  };
 
-      // @TODO: Expirement on how to optimize this try with helia browser.
+  const checkProviders = async (cidString: string) => {
+    try {
+      const { helia } = await getInstance(); // Get libp2p instance
+      const cid = CID.parse(cidString); // Parse CID
+
+      console.log(`🔍 Looking for providers of CID: ${cid}`);
+
+      const providers = [];
+      for await (const provider of helia.libp2p.contentRouting.findProviders(
+        cid,
+      )) {
+        providers.push(provider);
+        console.log("✅ Provider found:", provider);
+      }
+
+      return providers.length ? providers : "No providers found";
+    } catch (error) {
+      console.error("Error checking providers:", error);
+      return "Error checking providers";
     }
   };
 
@@ -163,8 +194,8 @@ export default function FileDetailsSection() {
   const downloadButtonText = useMemo(() => {
     const template = {
       idle: "DOWNLOAD NOW",
-      preparing: "PREPARING YOUR FILE",
-      downloading: "LOOKING FOR YOUR FILE",
+      preparing: "LOOKING YOUR FILE",
+      downloading: "FINALIZING...",
       complete: "READY FOR DOWNLOAD!",
       redownload: "DOWNLOAD AGAIN",
     };
@@ -182,6 +213,7 @@ export default function FileDetailsSection() {
   }, [downloadButtonText]);
 
   useEffect(() => {
+    bootIPFS();
     getFileDetails();
   }, []);
 

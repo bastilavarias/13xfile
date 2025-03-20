@@ -8,11 +8,9 @@ import { KadDHT, kadDHT } from "@libp2p/kad-dht";
 import { noise } from "@chainsafe/libp2p-noise";
 import { webTransport } from "@libp2p/webtransport";
 import { webRTC } from "@libp2p/webrtc";
-import {
-  circuitRelayTransport,
-  circuitRelayServer,
-} from "@libp2p/circuit-relay-v2";
+import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { autoNAT } from "@libp2p/autonat";
+import { bootstrap } from "@libp2p/bootstrap";
 import { tcp } from "@libp2p/tcp";
 import { yamux } from "@chainsafe/libp2p-yamux";
 import { keys } from "@libp2p/crypto";
@@ -23,8 +21,8 @@ import {
   Secp256k1PrivateKey,
   PubSub,
 } from "@libp2p/interface";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { multiaddr } from "@multiformats/multiaddr";
+import { get, set } from "idb-keyval";
 
 type Libp2pInstance = Libp2p<{
   dht: typeof kadDHT;
@@ -41,34 +39,43 @@ let libp2pInstance: Libp2p<{
   pubsub: PubSub<GossipsubEvents>;
   identify: Identify;
 }> | null = null;
-
-const IPFS_KEYS_PATH = path.join(process.cwd(), "ipfs_keys.json");
+const IPFS_KEYS_PATH = "helia-keys";
+const DHT_IP = process.env.NEXT_PUBLIC_DHT_IP;
+const DHT_PEER_ID = process.env.NEXT_PUBLIC_DHT_PEER_ID;
+const DHT_MULTIADDR = [
+  `/ip4/${DHT_IP}/tcp/4002/ws/p2p/${DHT_PEER_ID}`,
+  `/ip4/${DHT_IP}/udp/4001/webrtc-direct/p2p/${DHT_PEER_ID}`,
+  `/p2p-circuit/p2p/${DHT_PEER_ID}`,
+];
 
 const saveKeyPair = async (privateKey: Uint8Array, publicKey: Uint8Array) => {
   const data = {
-    "helia-private-key": Buffer.from(privateKey).toString("base64"),
-    "helia-public-key": Buffer.from(publicKey).toString("base64"),
+    privateKey: Buffer.from(privateKey).toString("base64"),
+    publicKey: Buffer.from(publicKey).toString("base64"),
   };
 
-  await fs.writeFile(IPFS_KEYS_PATH, JSON.stringify(data, null, 2), "utf-8");
+  await set(IPFS_KEYS_PATH, data);
 };
 
 const loadKeyPair = async () => {
   try {
-    const fileContent = await fs.readFile(IPFS_KEYS_PATH, "utf-8");
-    const data = JSON.parse(fileContent);
-    if (!data["helia-private-key"] || !data["helia-public-key"]) {
+    const data = await get<{ privateKey: string; publicKey: string }>(
+      IPFS_KEYS_PATH,
+    );
+    if (!data) {
+      console.warn("No key pair found in IndexedDB.");
       return null;
     }
     const privateKey = keys.privateKeyFromRaw(
-      Buffer.from(data["helia-private-key"], "base64"),
+      Buffer.from(data.privateKey, "base64"),
     );
     const publicKey = keys.publicKeyFromRaw(
-      Buffer.from(data["helia-public-key"], "base64"),
+      Buffer.from(data.publicKey, "base64"),
     );
 
     return { privateKey, publicKey };
   } catch (error) {
+    console.error("Failed to load key pair:", error);
     return null;
   }
 };
@@ -87,6 +94,7 @@ export async function bootIPFS() {
 
     libp2pInstance = await initializeLibp2p(privateKey);
 
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-expect-error
     heliaInstance = await initializeHelia(libp2pInstance); // Exception haha
     unixFsInstance = unixfs(heliaInstance);
@@ -103,7 +111,6 @@ const initializeLibp2p = async (
   const libp2p = await createLibp2p({
     privateKey,
     transports: [
-      tcp(),
       webSockets(),
       webTransport(),
       webRTC(),
@@ -113,12 +120,12 @@ const initializeLibp2p = async (
       listen: [
         // Only change to a different port for development purposes only to fix the ports conflicts issue..
         "/ip4/0.0.0.0/tcp/4005", // Make this port dynamic and default to 4001
-        "/ip4/0.0.0.0/tcp/4002/ws", // Make this port dynamic and default to 4002
         "/ip4/0.0.0.0/udp/4001/webrtc-direct", // Make this port dynamic and default to 4001
         "/ip4/0.0.0.0/tcp/0",
         "/p2p-circuit",
       ],
     },
+    peerDiscovery: [bootstrap({ list: DHT_MULTIADDR })],
     streamMuxers: [yamux()],
     connectionEncrypters: [noise()],
     services: {
@@ -126,7 +133,6 @@ const initializeLibp2p = async (
       pubsub: gossipsub(),
       identify: identify(),
       autoNAT: autoNAT(),
-      circuitRelayServer: circuitRelayServer(), // @TODO: Make it work the relay server.
     },
   });
 
@@ -138,23 +144,9 @@ const initializeHelia = async (libp2p: Libp2pInstance) => {
   const helia = await createHelia({
     libp2p,
   });
-
-  helia.libp2p.addEventListener("peer:connect", async (evt) => {
-    const peerId = evt.detail;
-    console.log("Peer connected:", peerId.toString());
-
-    try {
-      console.log("Dialing back to peer...");
-      await helia.libp2p.dial(peerId); // Connect back to them
-      console.log("Successfully connected back to peer:", peerId.toString());
-      console.log(
-        "Peers: ",
-        helia.libp2p.getPeers().map((peer) => peer.toString()),
-      );
-    } catch (error) {
-      console.error("Failed to connect back:", error);
-    }
-  });
+  for (const addr of DHT_MULTIADDR) {
+    await helia.libp2p.dial(multiaddr(addr));
+  }
 
   return helia;
 };

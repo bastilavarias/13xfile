@@ -170,17 +170,26 @@ export async function uploadFile(
       75, // End progress
       "Providing CID to the IPFS network...",
     );
-    if (devEnvironment !== "development") {
-      await runCommandWithProgress(
-        BINARY_PATH,
-        ["pin", "add", cid],
-        ENV,
-        onProgress,
-        75,
-        85,
-        "Pinning file to IPFS...",
-      );
-    }
+    await runCommandWithProgress(
+      BINARY_PATH,
+      ["pin", "add", cid],
+      ENV,
+      onProgress,
+      75,
+      85,
+      "Pinning file to IPFS...",
+    );
+    // if (devEnvironment !== "development") {
+    //   await runCommandWithProgress(
+    //     BINARY_PATH,
+    //     ["pin", "add", cid],
+    //     ENV,
+    //     onProgress,
+    //     75,
+    //     85,
+    //     "Pinning file to IPFS...",
+    //   );
+    // }
     await fsPromises.unlink(tempFilePath);
     onProgress(85, "Unlinking temporary file...");
 
