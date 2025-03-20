@@ -126,7 +126,7 @@ const initializeLibp2p = async (
       pubsub: gossipsub(),
       identify: identify(),
       autoNAT: autoNAT(),
-      circuitRelayServer: circuitRelayServer(), // @TODO: Make it work the relay server. Maybe save the peerID and store it with file details.
+      circuitRelayServer: circuitRelayServer(), // @TODO: Make it work the relay server. Maybe save the peerID and store it with file details. Also check this https://github.com/libp2p/specs/blob/master/relay/DCUtR.md
     },
   });
 
