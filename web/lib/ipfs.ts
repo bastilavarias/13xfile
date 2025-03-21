@@ -1,5 +1,6 @@
 import { createHelia, HeliaLibp2p } from "helia";
 import { createLibp2p, Libp2p } from "libp2p";
+import { createBitswap, Bitswap } from "@helia/bitswap";
 import { UnixFS, unixfs } from "@helia/unixfs";
 import { webSockets } from "@libp2p/websockets";
 import { Identify, identify } from "@libp2p/identify";
@@ -37,6 +38,7 @@ type HeliaInstance = HeliaLibp2p<Libp2pInstance>;
 
 let heliaInstance: HeliaInstance;
 let unixFsInstance: UnixFS;
+let bitswapInstance: Bitswap;
 let libp2pInstance: Libp2p<{
   dht: KadDHT;
   pubsub: PubSub<GossipsubEvents>;
@@ -148,14 +150,29 @@ const initializeHelia = async (libp2p: Libp2pInstance) => {
   const helia = await createHelia({
     libp2p,
   });
+
+  bitswapInstance = createBitswap(helia);
+
   for (const addr of DHT_MULTIADDR) {
     await helia.libp2p.dial(multiaddr(addr));
   }
-  await helia.libp2p.dial(
-    multiaddr(
-      `/ip4/${DHT_IP}/tcp/4002/ws/p2p/${DHT_PEER_ID}/p2p-circuit/p2p/12D3KooWB1DSHG3jSgDamjFYjy8GTMVsYrvP1Q61CNQ7f5WYibXR`,
-    ),
-  );
+
+  helia.libp2p.addEventListener("peer:connect", async (evt) => {
+    const peerId = evt.detail;
+    console.log("Peer connected from web:", peerId.toString());
+
+    try {
+      console.log("Dialing back to peer...");
+      await helia.libp2p.dial(peerId); // Connect back to them
+      console.log("Successfully connected back to peer:", peerId.toString());
+      console.log(
+        "Peers: ",
+        helia.libp2p.getPeers().map((peer) => peer.toString()),
+      );
+    } catch (error) {
+      console.error("Failed to connect back:", error);
+    }
+  });
 
   return helia;
 };
@@ -164,6 +181,7 @@ export async function getInstance() {
   return {
     helia: heliaInstance,
     fs: unixFsInstance,
+    bitswap: bitswapInstance,
   };
 }
 

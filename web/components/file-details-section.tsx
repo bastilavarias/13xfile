@@ -26,9 +26,12 @@ import {
   ACTIVITY_VIEW_ACTION,
   ActivityAction,
 } from "@/types/file_type";
-import { addFileActivity, getDownloadFile } from "@/repository/file_repository";
+import { addFileActivity } from "@/repository/file_repository";
 import { bootIPFS, getInstance } from "@/lib/ipfs";
-import { CID } from "multiformats";
+import { CID } from "multiformats/cid";
+import * as Block from "multiformats/block";
+import * as dagPB from "@ipld/dag-pb";
+import { sha256 } from "@noble/hashes/sha256";
 
 interface FileDetails {
   id: number;
@@ -128,36 +131,82 @@ export default function FileDetailsSection() {
     }
   };
 
+  async function* traverseDag(block, bitswap) {
+    // Decode the block (assuming it's a DAG-PB block)
+    const decodedBlock = Block.decode({
+      bytes: block,
+      codec: dagPB,
+      hasher: sha256,
+    });
+
+    if (decodedBlock.value instanceof Uint8Array) {
+      // If the block is raw data, yield it
+      yield decodedBlock.value;
+    } else if (decodedBlock.value.Links) {
+      // If the block has links, recursively fetch them
+      for (const link of decodedBlock.value.Links) {
+        const nextCid = CID.parse(link.Hash);
+        const nextBlock = await bitswap.want(nextCid);
+        yield* traverseDag(nextBlock, bitswap);
+      }
+    } else {
+      // Handle other cases (e.g., directories)
+      throw new Error("Unsupported DAG structure");
+    }
+  }
+
   const onDownload = async () => {
     if (!fileDetails?.cid) return;
-    await checkProviders(fileDetails.cid);
-    // try {
-    //   const { fs } = await getInstance(); // Get Helia UnixFS instance
-    //   setDownloadState("preparing");
-    //   const chunks = [];
-    //   for await (const chunk of fs.cat(fileDetails.cid)) {
-    //     chunks.push(chunk);
-    //   }
-    //   setDownloadState("downloading");
-    //   const uint8Array = new Uint8Array(
-    //     chunks.reduce((acc, chunk) => [...acc, ...chunk], []),
-    //   );
-    //   const blob = new Blob([uint8Array], { type: "application/octet-stream" });
-    //   const url = URL.createObjectURL(blob);
-    //   const a = document.createElement("a");
-    //   a.href = url;
-    //   a.download = fileDetails.name || "downloaded-file";
-    //   document.body.appendChild(a);
-    //   a.click();
-    //   document.body.removeChild(a);
-    //   URL.revokeObjectURL(url);
-    //   setDownloadState("complete");
-    //   addActivity(ACTIVITY_DOWNLOAD_ACTION);
-    //   setTimeout(() => setDownloadState("redownload"), 2000);
-    // } catch (error) {
-    //   console.error("Download failed:", error);
-    //   setDownloadState("error");
-    // }
+    try {
+      const { bitswap } = await getInstance(); // Get Helia Bitswap instance
+      setDownloadState("preparing");
+
+      const startTime = performance.now(); // Start time
+
+      // Parse the CID
+      const cid = CID.parse(fileDetails.cid);
+
+      // Fetch the root block using Bitswap
+      const rootBlock = await bitswap.want(cid);
+      console.log("Root block: ", rootBlock);
+      const chunks = [];
+
+      // Traverse the DAG and fetch all blocks
+      for await (const block of traverseDag(rootBlock, bitswap)) {
+        chunks.push(block);
+      }
+
+      setDownloadState("downloading");
+
+      // Combine all chunks into a single Uint8Array
+      const uint8Array = new Uint8Array(
+        chunks.reduce((acc, chunk) => [...acc, ...chunk], []),
+      );
+
+      // Create a Blob and trigger the download
+      const blob = new Blob([uint8Array], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileDetails.name || "downloaded-file";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      const endTime = performance.now(); // End time
+      const downloadDuration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds
+
+      console.log(`Download completed in ${downloadDuration} seconds`);
+
+      setDownloadState("complete");
+      addActivity(ACTIVITY_DOWNLOAD_ACTION, { duration: downloadDuration });
+
+      setTimeout(() => setDownloadState("redownload"), 2000);
+    } catch (error) {
+      console.error("Download failed:", error);
+      setDownloadState("error");
+    }
   };
 
   const checkProviders = async (cidString: string) => {

@@ -59,17 +59,40 @@ async function establishDaemon() {
   });
 }
 
-async function establishDHTRelayConnection() {
+async function establishRelayConnection() {
   try {
-    const { stdout } = await execPromise(BINARY_PATH, ["swarm", "peers"], {
-      env: ENV,
-    });
-    if (stdout.includes(DHT_MULTIADDR)) {
-      return;
-    }
+    await execPromise(
+      BINARY_PATH,
+      ["config", "--json", "Swarm.Transports.Network.Relay", "true"],
+      { env: ENV },
+    );
+    await execPromise(
+      BINARY_PATH,
+      ["config", "--json", "Swarm.RelayClient.Enabled", "true"],
+      { env: ENV },
+    );
+    await execPromise(
+      BINARY_PATH,
+      ["config", "--json", "Swarm.RelayService.Enabled", "true"],
+      { env: ENV },
+    );
+    await execPromise(
+      BINARY_PATH,
+      ["config", "--json", "Addresses.Swarm", JSON.stringify(["/p2p-circuit"])],
+      { env: ENV },
+    );
     await execPromise(BINARY_PATH, ["swarm", "connect", DHT_MULTIADDR], {
       env: ENV,
     });
+    await execPromise(
+      BINARY_PATH,
+      [
+        "swarm",
+        "connect",
+        "/ip4/192.168.2.243/tcp/4002/ws/p2p/QmPhgdy2MQXDs9PJM22rgnABPj2JtYoQJJtxBR8kv4zBhF/p2p-circuit/p2p/Qma1amgPuqYHuDvQEfVJVfAcDqiaxCeEzaCuoL7iSUNLPt",
+      ],
+      { env: ENV },
+    );
   } catch (error) {
     console.error("Error connecting to custom relay:", error);
   }
@@ -114,7 +137,7 @@ export async function bootIPFS() {
   try {
     await establishRepository();
     await establishDaemon();
-    await establishDHTRelayConnection();
+    await establishRelayConnection();
   } catch (error) {
     console.error("Error booting IPFS:", error);
     throw error;
@@ -190,6 +213,15 @@ export async function uploadFile(
     //     "Pinning file to IPFS...",
     //   );
     // }
+    await runCommandWithProgress(
+      BINARY_PATH,
+      ["pin", "add", cid],
+      ENV,
+      onProgress,
+      75,
+      85,
+      "Pinning file to IPFS...",
+    );
     await fsPromises.unlink(tempFilePath);
     onProgress(85, "Unlinking temporary file...");
 

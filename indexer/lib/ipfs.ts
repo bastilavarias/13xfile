@@ -128,7 +128,10 @@ const initializeLibp2p = async (
       autoNAT: autoNAT(),
       circuitRelayServer: circuitRelayServer({
         reservations: {
-          maxReservations: 100,
+          applyDefaultLimit: true,
+          maxReservations: 10,
+          defaultDataLimit: BigInt(1 << 30),
+          defaultDurationLimit: 3600 * 1000,
         },
       }),
     },
