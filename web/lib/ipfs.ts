@@ -8,7 +8,10 @@ import { KadDHT, kadDHT } from "@libp2p/kad-dht";
 import { noise } from "@chainsafe/libp2p-noise";
 import { webTransport } from "@libp2p/webtransport";
 import { webRTC } from "@libp2p/webrtc";
-import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
+import {
+  circuitRelayTransport,
+  circuitRelayServer,
+} from "@libp2p/circuit-relay-v2";
 import { autoNAT } from "@libp2p/autonat";
 import { bootstrap } from "@libp2p/bootstrap";
 import { tcp } from "@libp2p/tcp";
@@ -133,6 +136,7 @@ const initializeLibp2p = async (
       pubsub: gossipsub(),
       identify: identify(),
       autoNAT: autoNAT(),
+      circuitRelayServer: circuitRelayServer(),
     },
   });
 
@@ -147,6 +151,11 @@ const initializeHelia = async (libp2p: Libp2pInstance) => {
   for (const addr of DHT_MULTIADDR) {
     await helia.libp2p.dial(multiaddr(addr));
   }
+  await helia.libp2p.dial(
+    multiaddr(
+      `/ip4/${DHT_IP}/tcp/4002/ws/p2p/${DHT_PEER_ID}/p2p-circuit/p2p/12D3KooWB1DSHG3jSgDamjFYjy8GTMVsYrvP1Q61CNQ7f5WYibXR`,
+    ),
+  );
 
   return helia;
 };
