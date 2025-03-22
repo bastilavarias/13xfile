@@ -31,7 +31,8 @@ import { bootIPFS, getInstance } from "@/lib/ipfs";
 import { CID } from "multiformats/cid";
 import * as Block from "multiformats/block";
 import * as dagPB from "@ipld/dag-pb";
-import { sha256 } from "@noble/hashes/sha256";
+import * as hasher from "multiformats/hashes/hasher";
+import { multiaddr } from "@multiformats/multiaddr";
 
 interface FileDetails {
   id: number;
@@ -71,7 +72,7 @@ export default function FileDetailsSection() {
   const isOnline = true;
 
   const [downloadState, setDownloadState] = useState<
-    "idle" | "preparing" | "downloading" | "complete" | "redownload"
+    "idle" | "preparing" | "downloading" | "complete" | "redownload" | "error"
   >("idle");
 
   const [copied, setCopied] = useState(false);
@@ -131,78 +132,55 @@ export default function FileDetailsSection() {
     }
   };
 
-  async function* traverseDag(block, bitswap) {
-    // Decode the block (assuming it's a DAG-PB block)
-    const decodedBlock = Block.decode({
-      bytes: block,
-      codec: dagPB,
-      hasher: sha256,
-    });
-
-    if (decodedBlock.value instanceof Uint8Array) {
-      // If the block is raw data, yield it
-      yield decodedBlock.value;
-    } else if (decodedBlock.value.Links) {
-      // If the block has links, recursively fetch them
-      for (const link of decodedBlock.value.Links) {
-        const nextCid = CID.parse(link.Hash);
-        const nextBlock = await bitswap.want(nextCid);
-        yield* traverseDag(nextBlock, bitswap);
-      }
-    } else {
-      // Handle other cases (e.g., directories)
-      throw new Error("Unsupported DAG structure");
-    }
-  }
-
   const onDownload = async () => {
     if (!fileDetails?.cid) return;
     try {
-      const { bitswap } = await getInstance(); // Get Helia Bitswap instance
+      const { helia, fs } = await getInstance(); // Get Helia and UnixFS instances
+      const DHT_IP = process.env.NEXT_PUBLIC_DHT_IP;
+      const DHT_PEER_ID = process.env.NEXT_PUBLIC_DHT_PEER_ID;
+      const NODE_PEER_ID = "QmTFh4JMP64qGRaDd1a9Nhus1NnPUz2pLVLNeKfXbe4E6h";
       setDownloadState("preparing");
-
-      const startTime = performance.now(); // Start time
-
-      // Parse the CID
-      const cid = CID.parse(fileDetails.cid);
-
-      // Fetch the root block using Bitswap
-      const rootBlock = await bitswap.want(cid);
-      console.log("Root block: ", rootBlock);
-      const chunks = [];
-
-      // Traverse the DAG and fetch all blocks
-      for await (const block of traverseDag(rootBlock, bitswap)) {
-        chunks.push(block);
-      }
-
-      setDownloadState("downloading");
-
-      // Combine all chunks into a single Uint8Array
-      const uint8Array = new Uint8Array(
-        chunks.reduce((acc, chunk) => [...acc, ...chunk], []),
+      await helia.libp2p.dial(
+        multiaddr(
+          `/ip4/${DHT_IP}/tcp/4002/ws/p2p/${DHT_PEER_ID}/p2p-circuit/p2p/${NODE_PEER_ID}`,
+        ),
       );
 
-      // Create a Blob and trigger the download
-      const blob = new Blob([uint8Array], { type: "application/octet-stream" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileDetails.name || "downloaded-file";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      const endTime = performance.now(); // End time
-      const downloadDuration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds
-
-      console.log(`Download completed in ${downloadDuration} seconds`);
-
-      setDownloadState("complete");
-      addActivity(ACTIVITY_DOWNLOAD_ACTION, { duration: downloadDuration });
-
-      setTimeout(() => setDownloadState("redownload"), 2000);
+      // const startTime = performance.now(); // Start time
+      //
+      // // Fetch the file content as a stream of chunks
+      // const chunks = [];
+      // for await (const chunk of fs.cat(CID.parse(fileDetails.cid))) {
+      //   chunks.push(chunk);
+      // }
+      //
+      // setDownloadState("downloading");
+      //
+      // // Combine all chunks into a single Uint8Array
+      // const uint8Array = new Uint8Array(
+      //   chunks.reduce((acc, chunk) => [...acc, ...chunk], []),
+      // );
+      //
+      // // Create a Blob and trigger the download
+      // const blob = new Blob([uint8Array], { type: "application/octet-stream" });
+      // const url = URL.createObjectURL(blob);
+      // const a = document.createElement("a");
+      // a.href = url;
+      // a.download = fileDetails.name || "downloaded-file";
+      // document.body.appendChild(a);
+      // a.click();
+      // document.body.removeChild(a);
+      // URL.revokeObjectURL(url);
+      //
+      // const endTime = performance.now(); // End time
+      // const downloadDuration = ((endTime - startTime) / 1000).toFixed(2); // Convert to seconds
+      //
+      // console.log(`Download completed in ${downloadDuration} seconds`);
+      //
+      // setDownloadState("complete");
+      // addActivity(ACTIVITY_DOWNLOAD_ACTION, { duration: downloadDuration });
+      //
+      // setTimeout(() => setDownloadState("redownload"), 2000);
     } catch (error) {
       console.error("Download failed:", error);
       setDownloadState("error");
@@ -249,6 +227,7 @@ export default function FileDetailsSection() {
       redownload: "DOWNLOAD AGAIN",
     };
 
+    // @ts-ignore
     return template[downloadState];
   }, [downloadState]);
 

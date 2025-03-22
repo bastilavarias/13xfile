@@ -59,6 +59,47 @@ async function establishDaemon() {
   });
 }
 
+async function configureIpfs() {
+  // Set of configuration commands to enable DHT and content advertising
+  const configCommands = [
+    // Enable DHT routing
+    [BINARY_PATH, ["config", "--json", "Routing.Type", '"dht"'], { env: ENV }],
+    // Set DHT mode to server (actively participates in the network)
+    [
+      BINARY_PATH,
+      ["config", "--json", "Routing.Mode", '"server"'],
+      { env: ENV },
+    ],
+    // Provide all content to the network
+    [
+      BINARY_PATH,
+      ["config", "--json", "Reprovider.Strategy", '"all"'],
+      { env: ENV },
+    ],
+    // Enable experimental features if needed
+    [
+      BINARY_PATH,
+      ["config", "--json", "Experimental.FilestoreEnabled", "true"],
+      { env: ENV },
+    ],
+    // Connect to default bootstrap nodes
+    [BINARY_PATH, ["bootstrap", "add", "--default"], { env: ENV }],
+  ];
+
+  // Execute all configuration commands
+  for (const [cmd, args, options] of configCommands) {
+    try {
+      const { stdout, stderr } = await execPromise(cmd, args, options);
+      console.log(`Config command success: ${args.join(" ")}`);
+      if (stdout) console.log(`Output: ${stdout}`);
+      if (stderr) console.warn(`Warning: ${stderr}`);
+    } catch (error) {
+      console.error(`Failed to run config command ${args.join(" ")}:`, error);
+      // Continue with other commands even if one fails
+    }
+  }
+}
+
 async function establishRelayConnection() {
   try {
     await execPromise(
@@ -89,7 +130,7 @@ async function establishRelayConnection() {
       [
         "swarm",
         "connect",
-        "/ip4/192.168.2.243/tcp/4002/ws/p2p/QmPhgdy2MQXDs9PJM22rgnABPj2JtYoQJJtxBR8kv4zBhF/p2p-circuit/p2p/Qma1amgPuqYHuDvQEfVJVfAcDqiaxCeEzaCuoL7iSUNLPt",
+        "/ip4/192.168.1.48/tcp/4002/ws/p2p/QmVJomYR2E7CdRxbbAvMhkPehYrXxwcjh8Nnf5cCo9MyzP/p2p-circuit/p2p/QmbYkB7cV1R6XHWDrwZ91Rymroz6dNHhwXgQr14DNgoFRJ",
       ],
       { env: ENV },
     );
@@ -137,6 +178,7 @@ export async function bootIPFS() {
   try {
     await establishRepository();
     await establishDaemon();
+    // await configureIpfs();
     await establishRelayConnection();
   } catch (error) {
     console.error("Error booting IPFS:", error);
@@ -213,6 +255,15 @@ export async function uploadFile(
     //     "Pinning file to IPFS...",
     //   );
     // }
+    await runCommandWithProgress(
+      BINARY_PATH,
+      ["pin", "add", cid],
+      ENV,
+      onProgress,
+      75,
+      85,
+      "Pinning file to IPFS...",
+    );
     await runCommandWithProgress(
       BINARY_PATH,
       ["pin", "add", cid],

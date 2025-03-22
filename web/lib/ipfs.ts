@@ -153,10 +153,6 @@ const initializeHelia = async (libp2p: Libp2pInstance) => {
 
   bitswapInstance = createBitswap(helia);
 
-  for (const addr of DHT_MULTIADDR) {
-    await helia.libp2p.dial(multiaddr(addr));
-  }
-
   helia.libp2p.addEventListener("peer:connect", async (evt) => {
     const peerId = evt.detail;
     console.log("Peer connected from web:", peerId.toString());
