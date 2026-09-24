@@ -39,7 +39,9 @@ The headless `/node` app remains useful for servers and storage-only peers.
 - decentralized shared-vault metadata through the existing IPNS prototype
 - automatic pinning by other vault peers
 - public/private `13xfile://share/...` descriptors
-- private share descriptors carry the decryption capability
+- normal HTTPS web-share links for public files
+- static one-click public download page for recipients without 13xfile
+- private share descriptors carry the decryption capability inside the desktop app only
 - download + local decryption
 - no 13xfile-owned central API/database
 
@@ -106,6 +108,20 @@ On PC B, even on another network:
 4. wait for IPNS metadata sync and IPFS replication.
 
 The files should appear in PC B's local UI because PC B is running its own peer, not because it is connected to PC A's web server.
+
+## Public web sharing
+
+Public files now expose a normal browser link:
+
+```text
+https://bastilavarias.github.io/13xfile/share/#<descriptor>
+```
+
+The receiver does not need 13xfile Desktop. The page is static and keeps the file descriptor in the URL fragment, so there is no 13xfile account/file database behind the share page.
+
+Browser transport is intentionally isolated in `/share/gateways.js` so the retrieval strategy can be replaced without changing the desktop share format.
+
+Private files do **not** get a web-share link yet.
 
 ## Private sharing
 

@@ -128,7 +128,9 @@ function App() {
   const [trayOpen, setTrayOpen] = useState(true)
   const [shareOpen, setShareOpen] = useState(false)
   const [shareLink, setShareLink] = useState("")
+  const [webShareLink, setWebShareLink] = useState("")
   const [shareFile, setShareFile] = useState("")
+  const [shareVisibility, setShareVisibility] = useState<"public" | "private">("public")
   const [openLinkOpen, setOpenLinkOpen] = useState(false)
   const [incomingLink, setIncomingLink] = useState("")
   const [toast, setToast] = useState("")
@@ -222,9 +224,11 @@ function App() {
 
   const openShare = async (file: VaultFile) => {
     try {
-      const data = await request<{ link: string }>(`/files/${file.id}/share`)
+      const data = await request<{ link: string; webLink?: string }>(`/files/${file.id}/share`)
       setShareFile(file.name)
+      setShareVisibility(file.visibility === "private" ? "private" : "public")
       setShareLink(data.link)
+      setWebShareLink(data.webLink || "")
       setShareOpen(true)
     } catch (error) {
       flash(String(error))
@@ -519,12 +523,29 @@ function App() {
           <DialogHeader>
             <DialogTitle>Share {shareFile}</DialogTitle>
             <DialogDescription>
-              Private links contain the capability needed to decrypt the file. Anyone with the link can access it.
+              {shareVisibility === "public"
+                ? "Anyone with the web link can download this public file in a browser. No 13xfile app is required."
+                : "Private browser sharing is intentionally not enabled yet. The 13xfile app link still works between desktop clients."}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex gap-2">
-            <Input readOnly value={shareLink} className="font-mono text-xs" />
-            <Button onClick={() => copy(shareLink, "Share link copied")}><Copy className="h-4 w-4" /> Copy</Button>
+          {shareVisibility === "public" && webShareLink && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium">Web link</div>
+              <div className="flex gap-2">
+                <Input readOnly value={webShareLink} className="font-mono text-xs" />
+                <Button onClick={() => copy(webShareLink, "Web link copied")}><Copy className="h-4 w-4" /> Copy</Button>
+              </div>
+              <p className="text-[11px] leading-5 text-muted-foreground">
+                Opens a static 13xfile page with a one-click download button.
+              </p>
+            </div>
+          )}
+          <div className="space-y-2">
+            <div className="text-xs font-medium">13xfile app link</div>
+            <div className="flex gap-2">
+              <Input readOnly value={shareLink} className="font-mono text-xs" />
+              <Button variant="outline" onClick={() => copy(shareLink, "13xfile link copied")}><Copy className="h-4 w-4" /> Copy</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

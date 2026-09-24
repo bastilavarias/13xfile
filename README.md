@@ -45,7 +45,8 @@ Current desktop capabilities include:
 - decentralized vault file-list sync
 - automatic local replication of learned CIDs
 - public/private `13xfile://share/...` descriptors
-- private link decryption capability
+- static HTTPS one-click sharing for public files
+- private link decryption capability inside the desktop client
 - no central 13xfile API/database
 
 See `desktop/README.md`.

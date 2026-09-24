@@ -294,12 +294,15 @@ func (e *DesktopEngine) handleFileAction(w http.ResponseWriter, r *http.Request)
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		link, err := e.shareLink(file)
+		appLink, webLink, err := e.shareLinks(file)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		writeDesktopJSON(w, http.StatusOK, map[string]any{"link": link})
+		writeDesktopJSON(w, http.StatusOK, map[string]any{
+			"link":    appLink,
+			"webLink": webLink,
+		})
 	default:
 		http.NotFound(w, r)
 	}

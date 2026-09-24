@@ -24,7 +24,9 @@ type ShareDescriptor struct {
 	Key        string `json:"key,omitempty"`
 }
 
-func (e *DesktopEngine) shareLink(file VaultFile) (string, error) {
+const publicWebShareBase = "https://bastilavarias.github.io/13xfile/share/"
+
+func (e *DesktopEngine) shareLinks(file VaultFile) (string, string, error) {
 	desc := ShareDescriptor{
 		Version:    1,
 		ID:         file.ID,
@@ -41,15 +43,21 @@ func (e *DesktopEngine) shareLink(file VaultFile) (string, error) {
 	if desc.Visibility == "private" {
 		code, err := e.vaultCode()
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		desc.Key = encodeKey(derivePrivateKey(code, file.ID))
 	}
 	data, err := json.Marshal(desc)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return "13xfile://share/" + base64.RawURLEncoding.EncodeToString(data), nil
+	payload := base64.RawURLEncoding.EncodeToString(data)
+	appLink := "13xfile://share/" + payload
+	webLink := ""
+	if desc.Visibility == "public" {
+		webLink = publicWebShareBase + "#" + payload
+	}
+	return appLink, webLink, nil
 }
 
 func parseShareLink(value string) (ShareDescriptor, error) {

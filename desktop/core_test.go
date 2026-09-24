@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -44,6 +45,27 @@ func TestPrivateEncryptionRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(got.Bytes(), want) {
 		t.Fatal("decrypted bytes do not match original")
+	}
+}
+
+func TestPublicWebShareLink(t *testing.T) {
+	engine := &DesktopEngine{}
+	appLink, webLink, err := engine.shareLinks(VaultFile{
+		ID:         "public-file",
+		Name:       "hello.txt",
+		CID:        "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3ge7qj3uqz2cvz7k4z2x7c4nq",
+		Size:       42,
+		MIME:       "text/plain",
+		Visibility: "public",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(appLink, "13xfile://share/") {
+		t.Fatalf("unexpected app share link: %s", appLink)
+	}
+	if !strings.HasPrefix(webLink, publicWebShareBase+"#") {
+		t.Fatalf("unexpected web share link: %s", webLink)
 	}
 }
 

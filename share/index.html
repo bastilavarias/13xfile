@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <meta name="referrer" content="no-referrer" />
+  <title>13xfile Share</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header>
+    <a class="brand" href="./" aria-label="13xfile">13xfile</a>
+    <span class="network">Public share</span>
+  </header>
+
+  <main>
+    <section class="share-card" id="share-card" hidden>
+      <div class="file-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M14 2v6h6" stroke="currentColor" stroke-width="1.7"/>
+        </svg>
+      </div>
+
+      <div class="eyebrow">Shared with you</div>
+      <h1 id="file-name"></h1>
+      <p class="metadata">
+        <span id="file-size"></span>
+        <span class="dot">•</span>
+        <span>Public</span>
+      </p>
+
+      <div class="availability">
+        <span class="status-dot"></span>
+        <span id="availability-text">Ready to download from the IPFS network</span>
+      </div>
+
+      <button class="download-button" id="download-button" type="button">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span id="download-label">Download file</span>
+      </button>
+
+      <div class="progress-wrap" id="progress-wrap" hidden>
+        <div class="progress-track">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-copy">
+          <span id="progress-label">Connecting…</span>
+          <span id="progress-percent"></span>
+        </div>
+      </div>
+
+      <p class="footnote">
+        The file is addressed by its content ID. This page stores no account or file record.
+      </p>
+
+      <details class="technical">
+        <summary>File details</summary>
+        <dl>
+          <div>
+            <dt>CID</dt>
+            <dd id="file-cid"></dd>
+          </div>
+          <div>
+            <dt>Type</dt>
+            <dd id="file-type"></dd>
+          </div>
+        </dl>
+      </details>
+    </section>
+
+    <section class="error-card" id="error-card" hidden>
+      <div class="file-icon error-icon" aria-hidden="true">!</div>
+      <h1 id="error-title">Invalid share link</h1>
+      <p id="error-message">This 13xfile link is incomplete or unsupported.</p>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
