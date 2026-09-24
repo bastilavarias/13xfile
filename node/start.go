@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,9 +12,24 @@ import (
 )
 
 func main() {
+	storage := flag.String("storage", "10GB", "storage ceiling used only on first run")
+	flag.Parse()
+
 	app, err := node.New()
 	if err != nil {
 		fail(err)
+	}
+
+	initialized, err := app.EnsureInitialized(*storage)
+	if err != nil {
+		fail(err)
+	}
+	if initialized != nil {
+		fmt.Println("13xfile node initialized automatically")
+		fmt.Printf("Peer ID: %s\n", initialized.PeerID)
+		fmt.Printf("Storage: %s\n", initialized.StorageMax)
+		fmt.Printf("Kubo:    %s\n", initialized.KuboVersion)
+		fmt.Println()
 	}
 
 	ctx, stop := signal.NotifyContext(

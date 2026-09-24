@@ -64,11 +64,20 @@ func run(args []string) error {
 	case "start":
 		fs := flag.NewFlagSet("start", flag.ContinueOnError)
 		enableGC := fs.Bool("gc", true, "enable automatic Kubo garbage collection")
+		storage := fs.String("storage", "10GB", "storage ceiling used only on first run")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
 		if fs.NArg() != 0 {
 			return errors.New("start accepts no positional arguments")
+		}
+		if initialized, err := app.EnsureInitialized(*storage); err != nil {
+			return err
+		} else if initialized != nil {
+			fmt.Println("13xfile node initialized automatically")
+			fmt.Printf("Peer ID:  %s\n", initialized.PeerID)
+			fmt.Printf("Storage:  %s\n", initialized.StorageMax)
+			fmt.Printf("Kubo:     %s\n", initialized.KuboVersion)
 		}
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -165,7 +174,7 @@ Headless storage peer for the 13xfile network.
 
 Usage:
   13xfile-node init [--storage 100GB]
-  13xfile-node start [--gc=true]
+  13xfile-node start [--storage 10GB] [--gc=true]
   13xfile-node status
   13xfile-node pin <cid-or-ipfs-path>
   13xfile-node unpin <cid-or-ipfs-path>

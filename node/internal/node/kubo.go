@@ -18,21 +18,22 @@ type kubo struct {
 	repoPath string
 }
 
-func findKuboBinary() (string, error) {
+func findKuboBinary(home string) (string, error) {
 	if explicit := strings.TrimSpace(os.Getenv("KUBO_BIN")); explicit != "" {
-		info, err := os.Stat(explicit)
-		if err != nil {
+		if err := validateExecutable(explicit); err != nil {
 			return "", fmt.Errorf("KUBO_BIN %q is not usable: %w", explicit, err)
-		}
-		if info.IsDir() {
-			return "", fmt.Errorf("KUBO_BIN %q is a directory", explicit)
 		}
 		return explicit, nil
 	}
 
+	managed := managedKuboPath(home)
+	if err := validateExecutable(managed); err == nil {
+		return managed, nil
+	}
+
 	path, err := exec.LookPath("ipfs")
 	if err != nil {
-		return "", errors.New("Kubo ipfs executable not found; install Kubo or set KUBO_BIN")
+		return "", errors.New("Kubo executable not found")
 	}
 	return path, nil
 }

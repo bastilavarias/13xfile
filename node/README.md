@@ -18,11 +18,15 @@ It is a headless Go binary that turns a machine into a dedicated 13xfile storage
 
 The RPC API binds to an ephemeral port on `127.0.0.1` and is never exposed publicly. Never expose Kubo's administrative RPC API directly to the internet.
 
-## Requirements for v0.1
+## Runtime portability
 
-Kubo must currently be installed separately and available as `ipfs`, or its executable path must be supplied through `KUBO_BIN`.
+Kubo does **not** need to be installed manually. On first use, `13xfile-node` detects the current OS/CPU, downloads the pinned tested Kubo runtime, verifies its SHA-512 checksum, and stores it inside the node state directory.
 
-This dependency is intentional for the prototype. Once the 13xfile storage protocol is proven, we can either bundle a known Kubo release with the node installer or migrate the data plane into the Go binary using Boxo/go-libp2p.
+Supported automatic bootstrap targets currently include Windows, Linux, and macOS on amd64/arm64.
+
+`KUBO_BIN` is still supported as an explicit override for development or advanced deployments.
+
+The prototype intentionally keeps Kubo as the IPFS data plane. A later milestone can replace the managed runtime with Boxo/go-libp2p for a truly self-contained single-process binary.
 
 ## Cross-platform quick start
 
@@ -32,12 +36,12 @@ From inside the `node/` folder, Linux, Windows, and macOS can all use the same c
 go run start.go
 ```
 
-This launches the already-initialized node in the foreground and enables Kubo garbage collection. Press `Ctrl+C` to stop it.
+That is enough on a fresh machine. First run automatically downloads/verifies Kubo, creates the peer identity, initializes the repository with a 10 GB storage ceiling, and starts the node. Press `Ctrl+C` to stop it.
 
-The node still needs to be initialized once first:
+Choose a different first-run storage ceiling with:
 
 ```bash
-go run ./cmd/13xfile-node init --storage 10GB
+go run start.go --storage 100GB
 ```
 
 ## Build
@@ -51,9 +55,10 @@ go build -o 13xfile-node ./cmd/13xfile-node
 
 ```bash
 13xfile-node doctor
-13xfile-node init --storage 500GB
-13xfile-node start
+13xfile-node start --storage 100GB
 ```
+
+`start --storage` only applies when the node has not been initialized yet. Existing nodes retain their configured storage ceiling.
 
 In another terminal while the daemon is online:
 
@@ -72,7 +77,11 @@ By default:
 ```text
 ~/.13xfile-node/
 ├── config.json
-└── ipfs/
+├── ipfs/
+└── runtime/
+    └── kubo/
+        └── 0.43.1/
+            └── ipfs[.exe]
 ```
 
 Override the base directory with `THIRTEENXFILE_NODE_HOME`. This is useful for testing or running multiple isolated nodes.

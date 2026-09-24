@@ -46,7 +46,7 @@ func New() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	binary, binaryErr := findKuboBinary()
+	binary, binaryErr := findKuboBinary(home)
 	if binaryErr != nil {
 		binary = ""
 	}
@@ -58,10 +58,16 @@ func New() (*App, error) {
 }
 
 func (a *App) requireKubo() (string, error) {
-	if a.kuboBinary == "" {
-		return "", errors.New("Kubo ipfs executable not found; install Kubo or set KUBO_BIN")
+	if a.kuboBinary != "" {
+		return a.kuboBinary, nil
 	}
-	return a.kuboBinary, nil
+
+	binary, err := ensureManagedKubo(context.Background(), a.home)
+	if err != nil {
+		return "", fmt.Errorf("bootstrap managed Kubo: %w", err)
+	}
+	a.kuboBinary = binary
+	return binary, nil
 }
 
 func (a *App) Init(storage string) (InitResult, error) {
@@ -135,6 +141,20 @@ func (a *App) Init(storage string) (InitResult, error) {
 		StorageMax:  storage,
 		KuboVersion: version,
 	}, nil
+}
+
+func (a *App) EnsureInitialized(storage string) (*InitResult, error) {
+	if _, err := os.Stat(a.configPath); err == nil {
+		return nil, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("inspect node config: %w", err)
+	}
+
+	result, err := a.Init(storage)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 func (a *App) Start(ctx context.Context, enableGC bool) error {
@@ -244,11 +264,15 @@ func (a *App) loadedKubo() (kubo, error) {
 }
 
 func (a *App) Doctor() DoctorReport {
-	report := DoctorReport{KuboBinary: a.kuboBinary}
 	if a.kuboBinary == "" {
-		report.Error = "Kubo ipfs executable not found; install Kubo or set KUBO_BIN"
-		return report
+		binary, err := ensureManagedKubo(context.Background(), a.home)
+		if err != nil {
+			return DoctorReport{Error: fmt.Sprintf("bootstrap managed Kubo: %v", err)}
+		}
+		a.kuboBinary = binary
 	}
+
+	report := DoctorReport{KuboBinary: a.kuboBinary}
 
 	probe := kubo{binary: a.kuboBinary, repoPath: filepath.Join(a.home, "ipfs")}
 	version, err := probe.run(context.Background(), "version", "--number")

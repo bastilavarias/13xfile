@@ -16,7 +16,7 @@ The desktop and mobile clients are intentionally deferred until the node/data-pl
 
 ## First milestone
 
-`13xfile-node` is a headless installable Go binary that turns a machine into a storage peer. The v0.1 implementation uses an isolated Kubo repo as the IPFS data plane.
+`13xfile-node` is a headless installable Go binary that turns a machine into a storage peer. The v0.1 implementation uses an isolated Kubo repo as the IPFS data plane and self-manages a pinned, checksum-verified Kubo runtime on Windows, Linux, and macOS.
 
 The milestone is complete when independent machines can:
 

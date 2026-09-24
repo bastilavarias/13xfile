@@ -4,7 +4,9 @@ npm-debug.log*
 
 # Go
 node/13xfile-node
+node/13xfile-node.exe
 node/*.test
+node/*.test.exe
 
 # Local 13xfile state
 .13xfile/

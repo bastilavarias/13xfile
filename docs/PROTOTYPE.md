@@ -21,13 +21,12 @@ Current node responsibilities:
 
 Using two or more independent machines:
 
-1. install Kubo and `13xfile-node`,
-2. initialize each node,
-3. start the peers,
-4. add/pin encrypted test content,
-5. verify another node can fetch and retain it,
-6. disconnect the original source,
-7. verify the retained peer can still provide the CID.
+1. run `13xfile-node start` on each machine; the node self-bootstraps its pinned Kubo runtime and initializes itself on first use,
+2. verify the peers join IPFS/libp2p,
+3. add/pin encrypted test content,
+4. verify another node can fetch and retain it,
+5. disconnect the original source,
+6. verify the retained peer can still provide the CID.
 
 No 13xfile-owned central API, SQL database, Firebase project, or S3/object-store is allowed in the path.
 
