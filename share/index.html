@@ -36,10 +36,28 @@
 
       <div class="availability">
         <span class="status-dot"></span>
-        <span id="availability-text">Ready to download from the IPFS network</span>
+        <span id="availability-text">Checking public IPFS origins…</span>
       </div>
 
-      <button class="download-button" id="download-button" type="button">
+      <section class="origins">
+        <div class="origins-head">
+          <div>
+            <div class="origins-title">Download origin</div>
+            <div class="origins-subtitle">Public IPFS mirrors checked from your browser</div>
+          </div>
+          <button class="refresh-origins" id="refresh-origins" type="button">Refresh</button>
+        </div>
+
+        <div class="origin-list" id="origin-list">
+          <div class="origin-empty">Loading public IPFS origins…</div>
+        </div>
+
+        <div class="origin-summary" id="origin-summary">
+          Checking available mirrors…
+        </div>
+      </section>
+
+      <button class="download-button" id="download-button" type="button" disabled>
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
@@ -58,6 +76,7 @@
 
       <p class="footnote">
         The file is addressed by its content ID. This page stores no account or file record.
+        Public origins are sourced from the community-maintained IPFS Public Gateway Checker list.
       </p>
 
       <details class="technical">

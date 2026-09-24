@@ -115,7 +115,7 @@ Public files now expose a normal browser link. For the prototype, the committed 
 
 The receiver does not need 13xfile Desktop. There is no 13xfile account/file database behind the share page.
 
-Browser transport is intentionally isolated in `/share/gateways.js` so the retrieval strategy can be replaced without changing the desktop share format.
+Browser transport is intentionally isolated in `/share/gateways.js` so the retrieval strategy can be replaced without changing the desktop share format. The share page loads the community-maintained IPFS Public Gateway Checker list, probes those origins against the actual CID from the recipient's browser, ranks healthy origins by response latency, and lets the recipient choose a mirror. If the selected origin fails during retrieval, the page falls through to another healthy origin.
 
 A GitHub Pages deployment workflow is also included; once Pages is enabled for the repository, the desktop share base can be switched to the cleaner GitHub Pages URL.
 
