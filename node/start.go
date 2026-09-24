@@ -13,6 +13,9 @@ import (
 
 func main() {
 	storage := flag.String("storage", "10GB", "storage ceiling used only on first run")
+	webEnabled := flag.Bool("web", true, "run the embedded web mechanics demo")
+	webListen := flag.String("web-listen", "127.0.0.1:8787", "web demo listen address; use 0.0.0.0:8787 for LAN testing")
+	vaultCode := flag.String("vault-code", "", "join an existing demo vault; generated and persisted when omitted")
 	flag.Parse()
 
 	app, err := node.New()
@@ -38,6 +41,14 @@ func main() {
 		syscall.SIGTERM,
 	)
 	defer stop()
+
+	if *webEnabled {
+		go func() {
+			if err := app.RunWebDemo(ctx, *webListen, *vaultCode); err != nil && ctx.Err() == nil {
+				fmt.Fprintln(os.Stderr, "13xfile web demo:", err)
+			}
+		}()
+	}
 
 	fmt.Println("Starting 13xfile node...")
 	fmt.Println("Press Ctrl+C to stop.")

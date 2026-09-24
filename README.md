@@ -18,13 +18,17 @@ The desktop and mobile clients are intentionally deferred until the node/data-pl
 
 `13xfile-node` is a headless installable Go binary that turns a machine into a storage peer. The v0.1 implementation uses an isolated Kubo repo as the IPFS data plane and self-manages a pinned, checksum-verified Kubo runtime on Windows, Linux, and macOS.
 
-The milestone is complete when independent machines can:
+The current prototype lets independent machines:
 
 1. initialize stable peer identities,
 2. join IPFS/libp2p,
 3. reserve a bounded amount of disk,
-4. pin encrypted 13xfile CIDs,
-5. remain usable without any 13xfile-owned central API or database,
-6. serve those blocks after the original uploader goes offline.
+4. pin and retrieve 13xfile CIDs,
+5. run an embedded browser mechanics demo for upload/list/download/share,
+6. synchronize a demo vault file list through a signed IPNS manifest,
+7. automatically replicate CIDs learned from that manifest,
+8. remain usable without any 13xfile-owned central API or database.
+
+The web demo is deliberately temporary protocol scaffolding, not the final desktop product. File encryption and the production multi-writer metadata protocol are still pending.
 
 See `node/README.md`.

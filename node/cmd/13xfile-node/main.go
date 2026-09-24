@@ -14,7 +14,7 @@ import (
 	"github.com/13xfile/13xfile/node/internal/node"
 )
 
-const version = "0.1.0-dev"
+const version = "0.2.0-dev"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -65,6 +65,9 @@ func run(args []string) error {
 		fs := flag.NewFlagSet("start", flag.ContinueOnError)
 		enableGC := fs.Bool("gc", true, "enable automatic Kubo garbage collection")
 		storage := fs.String("storage", "10GB", "storage ceiling used only on first run")
+		webEnabled := fs.Bool("web", true, "run the embedded web mechanics demo")
+		webListen := fs.String("web-listen", "127.0.0.1:8787", "web demo listen address; use 0.0.0.0:8787 for LAN testing")
+		vaultCode := fs.String("vault-code", "", "join an existing demo vault; generated and persisted when omitted")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
@@ -81,6 +84,13 @@ func run(args []string) error {
 		}
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
+		if *webEnabled {
+			go func() {
+				if err := app.RunWebDemo(ctx, *webListen, *vaultCode); err != nil && ctx.Err() == nil {
+					fmt.Fprintln(os.Stderr, "13xfile web demo:", err)
+				}
+			}()
+		}
 		fmt.Println("Starting 13xfile storage peer...")
 		return app.Start(ctx, *enableGC)
 	case "status":
@@ -168,13 +178,13 @@ func run(args []string) error {
 }
 
 func printUsage() {
-	fmt.Print(`13xfile-node v0.1
+	fmt.Print(`13xfile-node v0.2
 
 Headless storage peer for the 13xfile network.
 
 Usage:
   13xfile-node init [--storage 100GB]
-  13xfile-node start [--storage 10GB] [--gc=true]
+  13xfile-node start [--storage 10GB] [--gc=true] [--web=true] [--web-listen 127.0.0.1:8787] [--vault-code CODE]
   13xfile-node status
   13xfile-node pin <cid-or-ipfs-path>
   13xfile-node unpin <cid-or-ipfs-path>
