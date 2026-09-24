@@ -83,8 +83,19 @@ function render(desc) {
   document.querySelector("#file-size").textContent = formatBytes(desc.size)
   document.querySelector("#file-cid").textContent = desc.cid
   document.querySelector("#file-type").textContent = desc.mime
+  document.querySelector("#file-type-short").textContent = friendlyType(desc.mime, desc.name)
   errorCard.hidden = true
   card.hidden = false
+}
+
+function friendlyType(mime, name) {
+  const extension = name.includes(".") ? name.split(".").pop().toUpperCase() : ""
+  if (extension && extension.length <= 8) return extension
+  if (mime.startsWith("image/")) return "Image"
+  if (mime.startsWith("video/")) return "Video"
+  if (mime.startsWith("audio/")) return "Audio"
+  if (mime === "application/pdf") return "PDF"
+  return "File"
 }
 
 function updateProgress(received, total) {

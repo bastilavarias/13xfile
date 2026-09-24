@@ -40,6 +40,7 @@ The headless `/node` app remains useful for servers and storage-only peers.
 - automatic pinning by other vault peers
 - public/private `13xfile://share/...` descriptors
 - normal HTTPS web-share links for public files
+- scannable QR code in the desktop Share dialog
 - static one-click public download page for recipients without 13xfile
 - private share descriptors carry the decryption capability inside the desktop app only
 - download + local decryption

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { QRCodeSVG } from "qrcode.react"
 import {
   Check,
   ChevronDown,
@@ -519,7 +520,7 @@ function App() {
       )}
 
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent>
+        <DialogContent className={shareVisibility === "public" ? "max-w-2xl" : undefined}>
           <DialogHeader>
             <DialogTitle>Share {shareFile}</DialogTitle>
             <DialogDescription>
@@ -529,15 +530,35 @@ function App() {
             </DialogDescription>
           </DialogHeader>
           {shareVisibility === "public" && webShareLink && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium">Web link</div>
-              <div className="flex gap-2">
-                <Input readOnly value={webShareLink} className="font-mono text-xs" />
-                <Button onClick={() => copy(webShareLink, "Web link copied")}><Copy className="h-4 w-4" /> Copy</Button>
+            <div className="grid gap-5 sm:grid-cols-[1fr_154px]">
+              <div className="space-y-2">
+                <div className="text-xs font-medium">Web link</div>
+                <div className="flex gap-2">
+                  <Input readOnly value={webShareLink} className="font-mono text-xs" />
+                  <Button onClick={() => copy(webShareLink, "Web link copied")}>
+                    <Copy className="h-4 w-4" /> Copy
+                  </Button>
+                </div>
+                <p className="text-[11px] leading-5 text-muted-foreground">
+                  Anyone can open this public file in a browser. No 13xfile app is required.
+                </p>
               </div>
-              <p className="text-[11px] leading-5 text-muted-foreground">
-                Opens a static 13xfile page with a one-click download button.
-              </p>
+
+              <div className="rounded-xl border bg-white p-3">
+                <div className="mx-auto w-fit rounded-lg bg-white p-1.5">
+                  <QRCodeSVG
+                    value={webShareLink}
+                    size={118}
+                    level="M"
+                    marginSize={0}
+                    bgColor="#ffffff"
+                    fgColor="#111111"
+                  />
+                </div>
+                <div className="mt-2 text-center text-[10px] font-medium text-muted-foreground">
+                  Scan to open
+                </div>
+              </div>
             </div>
           )}
           <div className="space-y-2">
