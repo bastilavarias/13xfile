@@ -1,0 +1,17 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Go
+node/13xfile-node
+node/*.test
+
+# Local 13xfile state
+.13xfile/
+.13xfile-node/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
