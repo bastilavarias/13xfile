@@ -42,7 +42,6 @@
 
     try {
       const response = await fetch(gatewayListURL, {
-        cache: "no-store",
         mode: "cors",
         signal: controller.signal,
       })

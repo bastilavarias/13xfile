@@ -241,7 +241,6 @@ async function probeGateway(origin, cid, signal) {
     const response = await fetch(gatewayURL(origin, cid), {
       method: "GET",
       mode: "cors",
-      cache: "no-store",
       redirect: "follow",
       headers: {
         Accept: "application/octet-stream",
@@ -340,7 +339,6 @@ async function fetchFromGateway(origin, desc) {
     response = await fetch(gatewayURL(origin, desc.cid), {
       method: "GET",
       mode: "cors",
-      cache: "no-store",
       redirect: "follow",
       headers: { Accept: "application/octet-stream" },
       signal: controller.signal,
