@@ -16,13 +16,29 @@ It is a headless Go binary that turns a machine into a dedicated 13xfile storage
 - list connected peers
 - manually run repository GC
 
-The RPC API remains on `127.0.0.1:5001`. Never expose it directly to the public internet.
+The RPC API binds to an ephemeral port on `127.0.0.1` and is never exposed publicly. Never expose Kubo's administrative RPC API directly to the internet.
 
 ## Requirements for v0.1
 
 Kubo must currently be installed separately and available as `ipfs`, or its executable path must be supplied through `KUBO_BIN`.
 
 This dependency is intentional for the prototype. Once the 13xfile storage protocol is proven, we can either bundle a known Kubo release with the node installer or migrate the data plane into the Go binary using Boxo/go-libp2p.
+
+## Cross-platform quick start
+
+From inside the `node/` folder, Linux, Windows, and macOS can all use the same command:
+
+```bash
+go run start.go
+```
+
+This launches the already-initialized node in the foreground and enables Kubo garbage collection. Press `Ctrl+C` to stop it.
+
+The node still needs to be initialized once first:
+
+```bash
+go run ./cmd/13xfile-node init --storage 10GB
+```
 
 ## Build
 
