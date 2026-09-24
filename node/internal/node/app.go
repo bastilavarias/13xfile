@@ -193,15 +193,19 @@ func (a *App) Status() (Status, error) {
 		StorageMax: cfg.StorageMax,
 	}
 
-	peers, peersErr := k.run(context.Background(), "swarm", "peers")
-	if peersErr == nil {
-		status.Online = true
-		status.ConnectedPeers = countNonEmptyLines(peers)
-	}
+	apiFile := filepath.Join(cfg.RepoPath, "api")
+	apiData, apiErr := os.ReadFile(apiFile)
+	if apiErr == nil && strings.TrimSpace(string(apiData)) != "" {
+		peers, peersErr := k.run(context.Background(), "swarm", "peers")
+		if peersErr == nil {
+			status.Online = true
+			status.ConnectedPeers = countNonEmptyLines(peers)
+		}
 
-	repoStat, statErr := k.run(context.Background(), "repo", "stat")
-	if statErr == nil {
-		status.RepoStat = repoStat
+		repoStat, statErr := k.run(context.Background(), "repo", "stat")
+		if statErr == nil {
+			status.RepoStat = repoStat
+		}
 	}
 
 	return status, nil

@@ -33,15 +33,17 @@ const (
 )
 
 type DemoFile struct {
-	ID      string    `json:"id"`
-	Name    string    `json:"name"`
-	CID     string    `json:"cid"`
-	Size    int64     `json:"size"`
-	MIME    string    `json:"mime"`
-	AddedAt time.Time `json:"addedAt"`
-	AddedBy string    `json:"addedBy"`
-	Share   string    `json:"share,omitempty"`
-	Local   bool      `json:"local"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	CID        string    `json:"cid"`
+	Size       int64     `json:"size"`
+	MIME       string    `json:"mime"`
+	AddedAt    time.Time `json:"addedAt"`
+	AddedBy    string    `json:"addedBy"`
+	Share      string    `json:"share,omitempty"`
+	Visibility string    `json:"visibility,omitempty"`
+	Cipher     string    `json:"cipher,omitempty"`
+	Local      bool      `json:"local"`
 }
 
 type demoManifest struct {
@@ -123,6 +125,7 @@ func (a *App) RunWebDemo(ctx context.Context, listenAddr, vaultCode string) erro
 	mux.HandleFunc("/", service.handleIndex)
 	mux.HandleFunc("/api/status", service.handleStatus)
 	mux.HandleFunc("/api/upload", service.handleUpload)
+	mux.HandleFunc("/api/register", service.handleRegister)
 	mux.HandleFunc("/api/import-share", service.handleImportShare)
 	mux.HandleFunc("/file/", service.handleFile)
 	mux.HandleFunc("/share/", service.handleFile)
@@ -632,14 +635,15 @@ func (s *demoService) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	name := safeFilename(header)
 	fileMeta := DemoFile{
-		ID:      id,
-		Name:    name,
-		CID:     strings.TrimSpace(cid),
-		Size:    size,
-		MIME:    contentType(header, name),
-		AddedAt: time.Now().UTC(),
-		AddedBy: localPeerID(s.app),
-		Local:   true,
+		ID:         id,
+		Name:       name,
+		CID:        strings.TrimSpace(cid),
+		Size:       size,
+		MIME:       contentType(header, name),
+		Visibility: "public",
+		AddedAt:    time.Now().UTC(),
+		AddedBy:    localPeerID(s.app),
+		Local:      true,
 	}
 	if err := s.addLocalFile(fileMeta); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -657,6 +661,86 @@ func (s *demoService) handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, fileMeta)
+}
+
+func (s *demoService) handleRegister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var body struct {
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		CID        string `json:"cid"`
+		Size       int64  `json:"size"`
+		MIME       string `json:"mime"`
+		Visibility string `json:"visibility"`
+		Cipher     string `json:"cipher"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 64<<10)).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	body.ID = strings.TrimSpace(body.ID)
+	body.Name = strings.TrimSpace(body.Name)
+	body.CID = strings.TrimSpace(body.CID)
+	body.Visibility = strings.ToLower(strings.TrimSpace(body.Visibility))
+	if body.ID == "" {
+		var err error
+		body.ID, err = randomID()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	if body.Name == "" || body.CID == "" {
+		http.Error(w, "name and cid are required", http.StatusBadRequest)
+		return
+	}
+	if _, err := validateIPFSPath(body.CID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if body.Visibility == "" {
+		body.Visibility = "public"
+	}
+	if body.Visibility != "public" && body.Visibility != "private" {
+		http.Error(w, "visibility must be public or private", http.StatusBadRequest)
+		return
+	}
+
+	meta := DemoFile{
+		ID:         body.ID,
+		Name:       filepath.Base(body.Name),
+		CID:        body.CID,
+		Size:       body.Size,
+		MIME:       strings.TrimSpace(body.MIME),
+		Visibility: body.Visibility,
+		Cipher:     strings.TrimSpace(body.Cipher),
+		AddedAt:    time.Now().UTC(),
+		AddedBy:    localPeerID(s.app),
+		Local:      true,
+	}
+	if meta.MIME == "" {
+		meta.MIME = "application/octet-stream"
+	}
+	if err := s.addLocalFile(meta); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	publishCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	err := s.publishManifest(publishCtx)
+	cancel()
+	if err != nil {
+		s.mu.Lock()
+		s.lastError = "publish: " + err.Error()
+		s.mu.Unlock()
+	}
+
+	meta.Share = encodeShare(meta)
+	writeJSON(w, http.StatusCreated, meta)
 }
 
 func (s *demoService) handleImportShare(w http.ResponseWriter, r *http.Request) {

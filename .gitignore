@@ -7,6 +7,13 @@ node/13xfile-node
 node/13xfile-node.exe
 node/*.test
 node/*.test.exe
+desktop/13xfile-desktop
+desktop/13xfile-desktop.exe
+desktop/*.test
+desktop/*.test.exe
+desktop/frontend/*.tsbuildinfo
+desktop/frontend/vite.config.js
+desktop/frontend/vite.config.d.ts
 
 # Local 13xfile state
 .13xfile/

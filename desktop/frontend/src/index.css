@@ -1,0 +1,37 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 45 14% 97%;
+    --foreground: 0 0% 8%;
+    --border: 40 6% 86%;
+    --input: 40 6% 82%;
+    --ring: 0 0% 10%;
+    --primary: 0 0% 8%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 40 9% 92%;
+    --secondary-foreground: 0 0% 12%;
+    --muted: 40 9% 93%;
+    --muted-foreground: 0 0% 43%;
+    --destructive: 0 72% 47%;
+    --destructive-foreground: 0 0% 98%;
+    --radius: 0.7rem;
+  }
+  * { @apply border-border; }
+  html, body, #root { width: 100%; min-height: 100%; margin: 0; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Poppins", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    user-select: none;
+  }
+  button, input { font: inherit; }
+}
+.file-drop-target-active {
+  border-color: hsl(var(--foreground)) !important;
+  background: hsl(var(--muted)) !important;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(100,100,100,.25); border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }

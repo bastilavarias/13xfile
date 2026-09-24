@@ -2,33 +2,58 @@
 
 13xfile is being rebuilt as a decentralized encrypted storage network.
 
-## Current implementation status
-
-Only the storage peer is being implemented right now:
+## Current prototype
 
 ```text
 13xfile/
-├── node/
+├── node/       headless storage peer + web mechanics demo
+├── desktop/    standalone desktop client
 └── docs/
 ```
 
-The desktop and mobile clients are intentionally deferred until the node/data-plane prototype is proven.
+There is no 13xfile-owned central API or database in the current architecture.
 
-## First milestone
+## Headless node
 
-`13xfile-node` is a headless installable Go binary that turns a machine into a storage peer. The v0.1 implementation uses an isolated Kubo repo as the IPFS data plane and self-manages a pinned, checksum-verified Kubo runtime on Windows, Linux, and macOS.
+`13xfile-node` turns a server or computer into a storage peer. It self-manages a pinned, checksum-verified Kubo runtime and keeps an isolated IPFS repo.
 
-The current prototype lets independent machines:
+Current node capabilities include:
 
-1. initialize stable peer identities,
-2. join IPFS/libp2p,
-3. reserve a bounded amount of disk,
-4. pin and retrieve 13xfile CIDs,
-5. run an embedded browser mechanics demo for upload/list/download/share,
-6. synchronize a demo vault file list through a signed IPNS manifest,
-7. automatically replicate CIDs learned from that manifest,
-8. remain usable without any 13xfile-owned central API or database.
-
-The web demo is deliberately temporary protocol scaffolding, not the final desktop product. File encryption and the production multi-writer metadata protocol are still pending.
+- stable peer identity
+- IPFS/libp2p connectivity
+- bounded local storage
+- pin/unpin/GC/status
+- decentralized demo vault metadata through IPNS
+- automatic pinning of file CIDs learned from the vault
+- embedded web mechanics demo
 
 See `node/README.md`.
+
+## Desktop prototype
+
+`/desktop` is the first standalone client experience. It owns its own node lifecycle rather than requiring a separately launched `13xfile-node`.
+
+Current desktop capabilities include:
+
+- Wails v3 native desktop shell
+- React + TypeScript + Tailwind + shadcn-style UI
+- system tray and close-to-background behavior
+- multiple drag/drop uploads
+- concurrent transfer queue + mini transfer tray
+- public files
+- private files encrypted locally before IPFS with chunked AES-256-GCM
+- decentralized vault file-list sync
+- automatic local replication of learned CIDs
+- public/private `13xfile://share/...` descriptors
+- private link decryption capability
+- no central 13xfile API/database
+
+See `desktop/README.md`.
+
+## Prototype limitations
+
+The current IPNS shared-manifest design is intentionally temporary. It proves decentralized file discovery and synchronization but is not the final multi-writer metadata architecture. The intended production direction is a signed append-only operation log / CRDT.
+
+The protocol also does not yet have durable replication acknowledgements, so the clients must not claim an exact replica count until peers can explicitly prove they completed storage.
+
+Mobile remains deferred until the desktop/node protocol is stable.

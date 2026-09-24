@@ -113,7 +113,18 @@ func TestInitStatusPinAndDoctor(t *testing.T) {
 
 	status, err := app.Status()
 	if err != nil {
-		t.Fatalf("Status: %v", err)
+		t.Fatalf("Status before daemon: %v", err)
+	}
+	if status.Online || status.ConnectedPeers != 0 {
+		t.Fatalf("expected initialized node to remain offline before daemon readiness: %+v", status)
+	}
+
+	if err := os.WriteFile(filepath.Join(initResult.RepoPath, "api"), []byte("/ip4/127.0.0.1/tcp/5001\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	status, err = app.Status()
+	if err != nil {
+		t.Fatalf("Status after daemon readiness: %v", err)
 	}
 	if !status.Online || status.ConnectedPeers != 2 {
 		t.Fatalf("unexpected online status: %+v", status)
