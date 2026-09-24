@@ -1,9 +1,13 @@
-import {
+const {
   gatewayHostname,
   gatewayLabel,
   gatewayURL,
   loadGatewayOrigins,
-} from "./gateways.js"
+} = window.ThirteenXGateways || {}
+
+if (!gatewayHostname || !gatewayLabel || !gatewayURL || !loadGatewayOrigins) {
+  throw new Error("13xfile gateway adapter failed to load")
+}
 
 const card = document.querySelector("#share-card")
 const errorCard = document.querySelector("#error-card")
