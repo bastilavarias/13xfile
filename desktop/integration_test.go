@@ -129,6 +129,15 @@ func TestDesktopEndToEnd(t *testing.T) {
 	if privateFile.Visibility != "private" || privateFile.Cipher != privateCipherName {
 		t.Fatalf("unexpected private metadata: %#v", privateFile)
 	}
+	if privateFile.KeyWrap == "" {
+		t.Fatal("private file is missing wrapped random file key")
+	}
+	if privateFile.ReplicaCount < 1 || len(privateFile.Replicas) < 1 {
+		t.Fatalf("expected signed local replica receipt, got %#v", privateFile.Replicas)
+	}
+	if state.Vault.DeviceID == "" {
+		t.Fatal("vault status is missing device identity")
+	}
 
 	download, err := http.Get("http://" + desktopAPIAddr + "/api/files/" + privateFile.ID + "/content")
 	if err != nil {

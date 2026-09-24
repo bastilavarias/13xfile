@@ -40,6 +40,10 @@ type DesktopEngine struct {
 	vaultErr     error
 
 	transfers *TransferManager
+	settings  *settingsStore
+
+	autostartMu      sync.RWMutex
+	autostartHandler func(bool) error
 
 	apiServer *http.Server
 
@@ -49,9 +53,10 @@ type DesktopEngine struct {
 
 func newDesktopEngine(ctx context.Context, home string, nodeApp *nodeengine.App) (*DesktopEngine, error) {
 	engine := &DesktopEngine{
-		ctx:  ctx,
-		home: home,
-		node: nodeApp,
+		ctx:      ctx,
+		home:     home,
+		node:     nodeApp,
+		settings: newSettingsStore(home),
 	}
 	engine.transfers = newTransferManager(ctx, engine, 3)
 	engine.apiServer = &http.Server{
@@ -94,6 +99,50 @@ func (e *DesktopEngine) Close() {
 	}
 }
 
+func (e *DesktopEngine) SetAutostartHandler(handler func(bool) error) {
+	e.autostartMu.Lock()
+	e.autostartHandler = handler
+	e.autostartMu.Unlock()
+}
+
+func (e *DesktopEngine) applySettings(next Settings) error {
+	current := e.settings.Get()
+	if next.ReplicationTarget < 1 || next.ReplicationTarget > 10 {
+		return errors.New("replication target must be between 1 and 10")
+	}
+	if strings.TrimSpace(next.DownloadDir) == "" {
+		return errors.New("download directory is required")
+	}
+	if err := os.MkdirAll(next.DownloadDir, 0o755); err != nil {
+		return fmt.Errorf("create download directory: %w", err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(current.StorageMax), strings.TrimSpace(next.StorageMax)) {
+		normalized, err := e.node.SetStorageMax(next.StorageMax)
+		if err != nil {
+			return fmt.Errorf("update storage allocation: %w", err)
+		}
+		next.StorageMax = normalized
+	}
+
+	if current.StartOnLogin != next.StartOnLogin {
+		e.autostartMu.RLock()
+		handler := e.autostartHandler
+		e.autostartMu.RUnlock()
+		if handler == nil {
+			return errors.New("start-at-login integration is not ready")
+		}
+		if err := handler(next.StartOnLogin); err != nil {
+			return fmt.Errorf("update start-at-login: %w", err)
+		}
+	}
+
+	return e.settings.Save(next)
+}
+
+func (e *DesktopEngine) keepRunningOnClose() bool {
+	return e.settings.Get().KeepRunningOnClose
+}
+
 func (e *DesktopEngine) SetProgressCallback(callback func(active int, progress int, summary string)) {
 	e.progressMu.Lock()
 	e.progressCallback = callback
@@ -115,6 +164,9 @@ func (e *DesktopEngine) setPeerStatus(online bool, peers int, peerID string) {
 	e.nodeOnline = online
 	e.connectedPeers = peers
 	e.peerID = peerID
+	if online {
+		e.fatal = ""
+	}
 	e.mu.Unlock()
 }
 
@@ -141,6 +193,7 @@ func (e *DesktopEngine) state() AppState {
 		ConnectedPeers: e.connectedPeers,
 		PeerID:         e.peerID,
 		Paused:         e.paused,
+		Settings:       e.settings.Get(),
 		Fatal:          e.fatal,
 	}
 	e.mu.RUnlock()

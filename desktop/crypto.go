@@ -12,10 +12,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 const (
 	privateCipherName = "aes-256-gcm-chunked-v1"
+	privateKeyWrap    = "aes-256-gcm-keywrap-v1"
 	privateChunkSize  = 1 << 20
 )
 
@@ -24,6 +26,71 @@ var privateMagic = [8]byte{'1', '3', 'X', 'E', 'N', 'C', '0', '1'}
 func derivePrivateKey(vaultCode, fileID string) []byte {
 	sum := sha256.Sum256([]byte("13xfile-private/v1\x00" + vaultCode + "\x00" + fileID))
 	return sum[:]
+}
+
+func generateFileKey() ([]byte, error) {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+func deriveVaultWrapKey(vaultCode string) []byte {
+	sum := sha256.Sum256([]byte("13xfile-vault-wrap/v1\x00" + vaultCode))
+	return sum[:]
+}
+
+func wrapFileKey(vaultCode, fileID string, fileKey []byte) (string, error) {
+	if len(fileKey) != 32 {
+		return "", errors.New("file key must be 32 bytes")
+	}
+	block, err := aes.NewCipher(deriveVaultWrapKey(vaultCode))
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	aad := []byte("13xfile-keywrap/v1\x00" + fileID)
+	sealed := gcm.Seal(nil, nonce, fileKey, aad)
+	payload := append(append([]byte{}, nonce...), sealed...)
+	return privateKeyWrap + ":" + base64.RawURLEncoding.EncodeToString(payload), nil
+}
+
+func unwrapFileKey(vaultCode, fileID, wrapped string) ([]byte, error) {
+	prefix := privateKeyWrap + ":"
+	if !strings.HasPrefix(wrapped, prefix) {
+		return nil, errors.New("unsupported private key wrap")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(wrapped, prefix))
+	if err != nil {
+		return nil, errors.New("invalid private key wrap")
+	}
+	block, err := aes.NewCipher(deriveVaultWrapKey(vaultCode))
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	if len(payload) < gcm.NonceSize()+gcm.Overhead() {
+		return nil, errors.New("private key wrap is incomplete")
+	}
+	nonce := payload[:gcm.NonceSize()]
+	ciphertext := payload[gcm.NonceSize():]
+	aad := []byte("13xfile-keywrap/v1\x00" + fileID)
+	key, err := gcm.Open(nil, nonce, ciphertext, aad)
+	if err != nil || len(key) != 32 {
+		return nil, errors.New("private key wrap authentication failed")
+	}
+	return key, nil
 }
 
 func encodeKey(key []byte) string {

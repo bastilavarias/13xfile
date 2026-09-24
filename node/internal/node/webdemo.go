@@ -27,23 +27,26 @@ import (
 )
 
 const (
-	demoManifestVersion = 1
+	demoManifestVersion = 2
 	demoConfigVersion   = 1
 	demoMaxUpload       = int64(512 << 20) // 512 MiB
 )
 
 type DemoFile struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	CID        string    `json:"cid"`
-	Size       int64     `json:"size"`
-	MIME       string    `json:"mime"`
-	AddedAt    time.Time `json:"addedAt"`
-	AddedBy    string    `json:"addedBy"`
-	Share      string    `json:"share,omitempty"`
-	Visibility string    `json:"visibility,omitempty"`
-	Cipher     string    `json:"cipher,omitempty"`
-	Local      bool      `json:"local"`
+	ID           string           `json:"id"`
+	Name         string           `json:"name"`
+	CID          string           `json:"cid"`
+	Size         int64            `json:"size"`
+	MIME         string           `json:"mime"`
+	AddedAt      time.Time        `json:"addedAt"`
+	AddedBy      string           `json:"addedBy"`
+	Share        string           `json:"share,omitempty"`
+	Visibility   string           `json:"visibility,omitempty"`
+	Cipher       string           `json:"cipher,omitempty"`
+	KeyWrap      string           `json:"keyWrap,omitempty"`
+	Local        bool             `json:"local"`
+	ReplicaCount int              `json:"replicaCount,omitempty"`
+	Replicas     []ReplicaReceipt `json:"replicas,omitempty"`
 }
 
 type demoManifest struct {
@@ -51,6 +54,7 @@ type demoManifest struct {
 	VaultID   string     `json:"vaultId"`
 	UpdatedAt time.Time  `json:"updatedAt"`
 	Files     []DemoFile `json:"files"`
+	Ops       []VaultOp  `json:"ops,omitempty"`
 }
 
 type demoConfig struct {
@@ -64,6 +68,7 @@ type demoService struct {
 	app          *App
 	kubo         kubo
 	cfg          demoConfig
+	device       deviceIdentity
 	manifestPath string
 	mu           sync.RWMutex
 	manifest     demoManifest
@@ -75,6 +80,7 @@ type demoService struct {
 
 type demoStatus struct {
 	PeerID       string     `json:"peerId"`
+	DeviceID     string     `json:"deviceId"`
 	VaultID      string     `json:"vaultId"`
 	JoinCode     string     `json:"joinCode"`
 	Files        []DemoFile `json:"files"`
@@ -126,6 +132,7 @@ func (a *App) RunWebDemo(ctx context.Context, listenAddr, vaultCode string) erro
 	mux.HandleFunc("/api/status", service.handleStatus)
 	mux.HandleFunc("/api/upload", service.handleUpload)
 	mux.HandleFunc("/api/register", service.handleRegister)
+	mux.HandleFunc("/api/remove", service.handleRemove)
 	mux.HandleFunc("/api/import-share", service.handleImportShare)
 	mux.HandleFunc("/file/", service.handleFile)
 	mux.HandleFunc("/share/", service.handleFile)
@@ -178,6 +185,10 @@ func newDemoService(ctx context.Context, app *App, k kubo, requestedCode string)
 	if err != nil {
 		return nil, err
 	}
+	device, err := ensureDeviceIdentity(app.home)
+	if err != nil {
+		return nil, err
+	}
 
 	vaultDir := filepath.Join(app.home, "vaults", cfg.VaultID)
 	if err := os.MkdirAll(vaultDir, 0o700); err != nil {
@@ -188,6 +199,7 @@ func newDemoService(ctx context.Context, app *App, k kubo, requestedCode string)
 		app:          app,
 		kubo:         k,
 		cfg:          cfg,
+		device:       device,
 		manifestPath: filepath.Join(vaultDir, "manifest.json"),
 		local:        make(map[string]bool),
 		replicating:  make(map[string]bool),
@@ -198,8 +210,13 @@ func newDemoService(ctx context.Context, app *App, k kubo, requestedCode string)
 	s.replicateMissing()
 
 	syncCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	_ = s.syncFromNetwork(syncCtx)
+	syncErr := s.syncFromNetwork(syncCtx)
 	cancel()
+	if syncErr != nil {
+		publishCtx, publishCancel := context.WithTimeout(ctx, 45*time.Second)
+		_ = s.publishManifest(publishCtx)
+		publishCancel()
+	}
 
 	return s, nil
 }
@@ -318,11 +335,16 @@ func (s *demoService) loadManifest() error {
 	if err := json.Unmarshal(data, &s.manifest); err != nil {
 		return fmt.Errorf("parse local vault manifest: %w", err)
 	}
+	if s.manifest.Version < 1 || s.manifest.Version > demoManifestVersion {
+		return fmt.Errorf("unsupported local manifest version %d", s.manifest.Version)
+	}
 	if s.manifest.VaultID != "" && s.manifest.VaultID != s.cfg.VaultID {
 		return errors.New("local manifest belongs to a different vault")
 	}
 	s.manifest.VaultID = s.cfg.VaultID
-	return nil
+	s.manifest.Version = demoManifestVersion
+	s.manifest.Files = applyVaultOps(s.manifest.Files, s.manifest.Ops)
+	return s.saveManifestLocked()
 }
 
 func (s *demoService) saveManifestLocked() error {
@@ -388,7 +410,7 @@ func (s *demoService) syncFromNetwork(ctx context.Context) error {
 		s.setSyncResult(err)
 		return err
 	}
-	if remote.VaultID != s.cfg.VaultID || remote.Version != demoManifestVersion {
+	if remote.VaultID != s.cfg.VaultID || remote.Version < 1 || remote.Version > demoManifestVersion {
 		err := errors.New("resolved manifest does not match this vault")
 		s.setSyncResult(err)
 		return err
@@ -407,23 +429,51 @@ func (s *demoService) mergeManifest(remote demoManifest) ([]DemoFile, bool, erro
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	index := make(map[string]DemoFile, len(s.manifest.Files))
+	legacy := make(map[string]DemoFile, len(s.manifest.Files)+len(remote.Files))
 	for _, file := range s.manifest.Files {
-		index[file.ID] = file
+		if file.ID == "" || file.CID == "" || file.Name == "" {
+			continue
+		}
+		legacy[file.ID] = file
 	}
-	var newFiles []DemoFile
 	for _, file := range remote.Files {
 		if file.ID == "" || file.CID == "" || file.Name == "" {
 			continue
 		}
-		if _, ok := index[file.ID]; !ok {
+		if _, exists := legacy[file.ID]; !exists {
 			file.Local = false
-			s.manifest.Files = append(s.manifest.Files, file)
-			index[file.ID] = file
+			file.Share = ""
+			file.ReplicaCount = 0
+			file.Replicas = nil
+			legacy[file.ID] = file
+		}
+	}
+
+	mergedOps, opsChanged, err := mergeVerifiedOps(s.manifest.Ops, remote.Ops)
+	if err != nil {
+		return nil, false, err
+	}
+
+	before := make(map[string]DemoFile, len(s.manifest.Files))
+	for _, file := range s.manifest.Files {
+		before[file.ID] = file
+	}
+	base := make([]DemoFile, 0, len(legacy))
+	for _, file := range legacy {
+		base = append(base, file)
+	}
+	s.manifest.Ops = mergedOps
+	s.manifest.Files = applyVaultOps(base, mergedOps)
+
+	var newFiles []DemoFile
+	for _, file := range s.manifest.Files {
+		if _, existed := before[file.ID]; !existed {
 			newFiles = append(newFiles, file)
 		}
 	}
-	if len(newFiles) == 0 {
+
+	changed := opsChanged || len(newFiles) > 0 || len(s.manifest.Files) != len(before)
+	if !changed {
 		return nil, false, nil
 	}
 	if err := s.saveManifestLocked(); err != nil {
@@ -454,14 +504,56 @@ func (s *demoService) pinRemote(file DemoFile) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	_, err := s.kubo.run(ctx, "pin", "add", "--recursive=true", "--name=13xfile-web-demo", "--fast-provide-root", "/ipfs/"+file.CID)
+
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	delete(s.replicating, file.ID)
 	if err == nil {
 		s.local[file.ID] = true
 	} else {
 		s.lastError = "replication " + file.Name + ": " + err.Error()
 	}
+	s.mu.Unlock()
+
+	if err != nil {
+		return
+	}
+	added, ackErr := s.recordReplicaAck(file)
+	if ackErr != nil {
+		s.mu.Lock()
+		s.lastError = "replica receipt " + file.Name + ": " + ackErr.Error()
+		s.mu.Unlock()
+		return
+	}
+	if added {
+		publishCtx, publishCancel := context.WithTimeout(context.Background(), 45*time.Second)
+		_ = s.publishManifest(publishCtx)
+		publishCancel()
+	}
+}
+
+func (s *demoService) recordReplicaAck(file DemoFile) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, op := range s.manifest.Ops {
+		if op.Type == vaultOpReplicaAck && op.DeviceID == s.device.DeviceID && op.FileID == file.ID && op.CID == file.CID {
+			return false, nil
+		}
+	}
+	op, err := s.device.signOp(VaultOp{
+		Type:   vaultOpReplicaAck,
+		PeerID: localPeerID(s.app),
+		FileID: file.ID,
+		CID:    file.CID,
+	})
+	if err != nil {
+		return false, err
+	}
+	s.manifest.Ops = append(s.manifest.Ops, op)
+	if err := s.saveManifestLocked(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *demoService) setSyncResult(err error) {
@@ -485,6 +577,8 @@ func (s *demoService) publishManifest(ctx context.Context) error {
 	for i := range copyManifest.Files {
 		copyManifest.Files[i].Local = false
 		copyManifest.Files[i].Share = ""
+		copyManifest.Files[i].ReplicaCount = 0
+		copyManifest.Files[i].Replicas = nil
 	}
 
 	data, err := json.MarshalIndent(copyManifest, "", "  ")
@@ -530,13 +624,75 @@ func (s *demoService) publishManifest(ctx context.Context) error {
 func (s *demoService) addLocalFile(file DemoFile) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for _, existing := range s.manifest.Files {
 		if existing.ID == file.ID {
+			s.local[file.ID] = true
 			return nil
 		}
 	}
-	s.manifest.Files = append(s.manifest.Files, file)
+
+	signedFile := file
+	signedFile.Local = false
+	signedFile.Share = ""
+	signedFile.ReplicaCount = 0
+	signedFile.Replicas = nil
+
+	addOp, err := s.device.signOp(VaultOp{
+		Type:   vaultOpFileAdd,
+		PeerID: localPeerID(s.app),
+		File:   &signedFile,
+	})
+	if err != nil {
+		return err
+	}
+	ackOp, err := s.device.signOp(VaultOp{
+		Type:   vaultOpReplicaAck,
+		PeerID: localPeerID(s.app),
+		FileID: file.ID,
+		CID:    file.CID,
+	})
+	if err != nil {
+		return err
+	}
+
+	s.manifest.Ops = append(s.manifest.Ops, addOp, ackOp)
+	s.manifest.Files = applyVaultOps(s.manifest.Files, s.manifest.Ops)
 	s.local[file.ID] = true
+	return s.saveManifestLocked()
+}
+
+func (s *demoService) removeLocalFile(fileID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	fileID = strings.TrimSpace(fileID)
+	if fileID == "" {
+		return errors.New("file ID is required")
+	}
+	found := false
+	for _, file := range s.manifest.Files {
+		if file.ID == fileID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return os.ErrNotExist
+	}
+
+	op, err := s.device.signOp(VaultOp{
+		Type:   vaultOpFileRemove,
+		PeerID: localPeerID(s.app),
+		FileID: fileID,
+	})
+	if err != nil {
+		return err
+	}
+	s.manifest.Ops = append(s.manifest.Ops, op)
+	s.manifest.Files = applyVaultOps(s.manifest.Files, s.manifest.Ops)
+	delete(s.local, fileID)
+	delete(s.replicating, fileID)
 	return s.saveManifestLocked()
 }
 
@@ -559,6 +715,7 @@ func (s *demoService) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.RLock()
 	files := append([]DemoFile(nil), s.manifest.Files...)
+	ops := append([]VaultOp(nil), s.manifest.Ops...)
 	lastSync := s.lastSync
 	lastError := s.lastError
 	local := make(map[string]bool, len(s.local))
@@ -573,16 +730,19 @@ func (s *demoService) handleStatus(w http.ResponseWriter, r *http.Request) {
 	for i := range files {
 		files[i].Local = local[files[i].ID]
 		files[i].Share = encodeShare(files[i])
+		files[i].Replicas = replicaReceiptsFor(ops, files[i].ID, files[i].CID)
+		files[i].ReplicaCount = len(files[i].Replicas)
 	}
 	writeJSON(w, http.StatusOK, demoStatus{
 		PeerID:       peerID,
+		DeviceID:     s.device.DeviceID,
 		VaultID:      s.cfg.VaultID,
 		JoinCode:     s.cfg.Code,
 		Files:        files,
 		LastSync:     lastSync,
 		LastError:    lastError,
-		Warning:      "Prototype only: files are not encrypted yet. Use test data.",
-		ManifestMode: "IPNS shared-vault manifest (demo)",
+		Warning:      "MVP protocol: signed device operations and replica receipts enabled.",
+		ManifestMode: "IPNS pointer + signed append-only vault operations",
 	})
 }
 
@@ -677,6 +837,7 @@ func (s *demoService) handleRegister(w http.ResponseWriter, r *http.Request) {
 		MIME       string `json:"mime"`
 		Visibility string `json:"visibility"`
 		Cipher     string `json:"cipher"`
+		KeyWrap    string `json:"keyWrap"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 64<<10)).Decode(&body); err != nil {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -718,6 +879,7 @@ func (s *demoService) handleRegister(w http.ResponseWriter, r *http.Request) {
 		MIME:       strings.TrimSpace(body.MIME),
 		Visibility: body.Visibility,
 		Cipher:     strings.TrimSpace(body.Cipher),
+		KeyWrap:    strings.TrimSpace(body.KeyWrap),
 		AddedAt:    time.Now().UTC(),
 		AddedBy:    localPeerID(s.app),
 		Local:      true,
@@ -741,6 +903,39 @@ func (s *demoService) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	meta.Share = encodeShare(meta)
 	writeJSON(w, http.StatusCreated, meta)
+}
+
+func (s *demoService) handleRemove(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 16<<10)).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if err := s.removeLocalFile(body.ID); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			http.Error(w, "file not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	publishCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	err := s.publishManifest(publishCtx)
+	cancel()
+	if err != nil {
+		s.mu.Lock()
+		s.lastError = "publish removal: " + err.Error()
+		s.mu.Unlock()
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *demoService) handleImportShare(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,17 @@
+version: '3'
+
+info:
+  companyName: "13xfile"
+  productName: "13xfile"
+  productIdentifier: "app.13xfile.desktop"
+  description: "Decentralized encrypted file storage"
+  copyright: "(c) 2026 13xfile"
+  comments: "13xfile desktop MVP"
+  version: "0.3.0"
+
+protocols:
+  - scheme: x13file
+    description: 13xfile share link
+
+fileAssociations: []
+other: []

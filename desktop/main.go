@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	nodeengine "github.com/13xfile/13xfile/node/internal/node"
@@ -46,23 +49,55 @@ func main() {
 		log.Fatal(err)
 	}
 
+	var window *application.WebviewWindow
+	initialShare, _ := find13xfileURL(os.Args)
+
 	app := application.New(application.Options{
 		Name:        "13xfile",
-		Description: "Decentralized file storage prototype",
+		Description: "Decentralized encrypted file storage",
 		Assets: application.AssetOptions{
 			Handler:        application.BundledAssetFileServer(sub),
 			DisableLogging: true,
 		},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "app.13xfile.desktop.prototype",
+			UniqueID: "app.13xfile.desktop",
+			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
+				share, found := find13xfileURL(data.Args)
+				if window == nil {
+					return
+				}
+				window.Show()
+				window.Restore()
+				window.Focus()
+				if found {
+					window.EmitEvent("share-link", share)
+				}
+			},
 		},
 	})
 
-	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
+	app.Event.OnApplicationEvent(events.Common.ApplicationLaunchedWithUrl, func(e *application.ApplicationEvent) {
+		if window == nil {
+			return
+		}
+		share := e.Context().URL()
+		if strings.HasPrefix(share, "x13file://") || strings.HasPrefix(share, "13xfile://") {
+			window.Show()
+			window.Restore()
+			window.Focus()
+			window.EmitEvent("share-link", share)
+		}
+	})
+
+	windowURL := "/"
+	if initialShare != "" {
+		windowURL = "/?share=" + url.QueryEscape(initialShare)
+	}
+	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "13xfile",
 		Width:            1040,
 		Height:           760,
-		URL:              "/",
+		URL:              windowURL,
 		EnableFileDrop:   true,
 		BackgroundColour: application.NewRGB(248, 248, 247),
 	})
@@ -72,13 +107,23 @@ func main() {
 		log.Fatal(err)
 	}
 	defer engine.Close()
+	engine.SetAutostartHandler(func(enabled bool) error {
+		if enabled {
+			return app.Autostart.Enable()
+		}
+		return app.Autostart.Disable()
+	})
 
 	tray := newDesktopTray(app, window)
 	engine.SetProgressCallback(tray.Update)
 
 	window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		window.Hide()
-		e.Cancel()
+		if engine.keepRunningOnClose() {
+			window.Hide()
+			e.Cancel()
+			return
+		}
+		app.Quit()
 	})
 	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
 		files := event.Context().DroppedFiles()
@@ -89,9 +134,21 @@ func main() {
 	})
 
 	go func() {
-		if err := nodeApp.Start(ctx, true); err != nil && ctx.Err() == nil {
-			engine.setFatal(fmt.Errorf("node stopped: %w", err))
-			return
+		for ctx.Err() == nil {
+			err := nodeApp.Start(ctx, true)
+			if ctx.Err() != nil {
+				return
+			}
+			if err != nil {
+				engine.setFatal(fmt.Errorf("node stopped: %w; restarting", err))
+			} else {
+				engine.setFatal(errors.New("node stopped unexpectedly; restarting"))
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(3 * time.Second):
+			}
 		}
 	}()
 
@@ -115,6 +172,16 @@ func main() {
 		log.Fatal(err)
 	}
 	cancel()
+}
+
+func find13xfileURL(args []string) (string, bool) {
+	for _, arg := range args {
+		arg = strings.TrimSpace(arg)
+		if strings.HasPrefix(arg, "x13file://share/") || strings.HasPrefix(arg, "13xfile://share/") {
+			return arg, true
+		}
+	}
+	return "", false
 }
 
 func desktopHome() (string, error) {

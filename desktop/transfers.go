@@ -19,10 +19,21 @@ import (
 )
 
 type transferJob struct {
-	ID         string
-	Path       string
-	Visibility string
-	Staged     bool
+	ID         string `json:"id"`
+	Path       string `json:"path"`
+	Visibility string `json:"visibility"`
+	Staged     bool   `json:"staged"`
+}
+
+type transferJournalEntry struct {
+	Item Transfer    `json:"item"`
+	Job  transferJob `json:"job"`
+}
+
+type transferJournal struct {
+	Version int                    `json:"version"`
+	Paused  bool                   `json:"paused"`
+	Entries []transferJournalEntry `json:"entries"`
 }
 
 type TransferManager struct {
@@ -32,12 +43,15 @@ type TransferManager struct {
 	queue chan transferJob
 	wg    sync.WaitGroup
 
-	mu     sync.RWMutex
-	items  map[string]*Transfer
-	jobs   map[string]transferJob
-	cancel map[string]context.CancelFunc
-	paused bool
-	closed bool
+	mu          sync.RWMutex
+	items       map[string]*Transfer
+	jobs        map[string]transferJob
+	cancel      map[string]context.CancelFunc
+	paused      bool
+	closed      bool
+	started     bool
+	workers     int
+	journalPath string
 }
 
 func newTransferManager(ctx context.Context, engine *DesktopEngine, workers int) *TransferManager {
@@ -45,21 +59,126 @@ func newTransferManager(ctx context.Context, engine *DesktopEngine, workers int)
 		workers = 1
 	}
 	manager := &TransferManager{
-		ctx:    ctx,
-		engine: engine,
-		queue:  make(chan transferJob, 256),
-		items:  make(map[string]*Transfer),
-		jobs:   make(map[string]transferJob),
-		cancel: make(map[string]context.CancelFunc),
+		ctx:         ctx,
+		engine:      engine,
+		queue:       make(chan transferJob, 256),
+		items:       make(map[string]*Transfer),
+		jobs:        make(map[string]transferJob),
+		cancel:      make(map[string]context.CancelFunc),
+		workers:     workers,
+		journalPath: filepath.Join(engine.home, "transfers.json"),
 	}
-	manager.wg.Add(workers)
-	for i := 0; i < workers; i++ {
-		go manager.worker()
-	}
+	manager.loadJournal()
 	return manager
 }
 
-func (m *TransferManager) Start() {}
+func (m *TransferManager) Start() {
+	m.mu.Lock()
+	if m.started || m.closed {
+		m.mu.Unlock()
+		return
+	}
+	m.started = true
+	var recoverJobs []transferJob
+	for id, item := range m.items {
+		if item.Status != "queued" && item.Status != "running" {
+			continue
+		}
+		job, ok := m.jobs[id]
+		if !ok {
+			item.Status = "failed"
+			item.Stage = "Failed"
+			item.Error = "transfer journal is missing source information"
+			continue
+		}
+		if _, err := os.Stat(job.Path); err != nil {
+			item.Status = "failed"
+			item.Stage = "Failed"
+			item.Error = "source is no longer available after restart"
+			continue
+		}
+		item.Status = "queued"
+		item.Stage = "Queued after restart"
+		item.Progress = 0
+		item.Error = ""
+		item.UpdatedAt = time.Now().UTC()
+		recoverJobs = append(recoverJobs, job)
+	}
+	_ = m.persistLocked()
+	m.wg.Add(m.workers)
+	for i := 0; i < m.workers; i++ {
+		go m.worker()
+	}
+	m.mu.Unlock()
+
+	for _, job := range recoverJobs {
+		m.queue <- job
+	}
+}
+
+func (m *TransferManager) loadJournal() {
+	raw, err := os.ReadFile(m.journalPath)
+	if err != nil {
+		return
+	}
+	var journal transferJournal
+	if json.Unmarshal(raw, &journal) != nil || journal.Version != 1 {
+		return
+	}
+	m.paused = journal.Paused
+	for _, entry := range journal.Entries {
+		item := entry.Item
+		job := entry.Job
+		if item.ID == "" || job.ID == "" || item.ID != job.ID {
+			continue
+		}
+		item.SourcePath = job.Path
+		item.Staged = job.Staged
+		copyItem := item
+		m.items[item.ID] = &copyItem
+		m.jobs[item.ID] = job
+	}
+}
+
+func (m *TransferManager) persistLocked() error {
+	journal := transferJournal{
+		Version: 1,
+		Paused:  m.paused,
+		Entries: make([]transferJournalEntry, 0, len(m.items)),
+	}
+	items := make([]*Transfer, 0, len(m.items))
+	for _, item := range m.items {
+		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	if len(items) > 100 {
+		items = items[:100]
+	}
+	for _, item := range items {
+		job, ok := m.jobs[item.ID]
+		if !ok {
+			continue
+		}
+		copyItem := *item
+		copyItem.SourcePath = ""
+		copyItem.Staged = false
+		journal.Entries = append(journal.Entries, transferJournalEntry{Item: copyItem, Job: job})
+	}
+	raw, err := json.MarshalIndent(journal, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(m.journalPath), 0o700); err != nil {
+		return err
+	}
+	tmp := m.journalPath + ".tmp"
+	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, m.journalPath)
+}
 
 func (m *TransferManager) Close() {
 	m.mu.Lock()
@@ -71,6 +190,7 @@ func (m *TransferManager) Close() {
 	for _, cancel := range m.cancel {
 		cancel()
 	}
+	_ = m.persistLocked()
 	m.mu.Unlock()
 }
 
@@ -116,6 +236,7 @@ func (m *TransferManager) QueuePaths(paths []string, visibility string, staged b
 		m.mu.Lock()
 		m.items[id] = item
 		m.jobs[id] = job
+		_ = m.persistLocked()
 		m.mu.Unlock()
 
 		added = append(added, *item)
@@ -146,6 +267,7 @@ func (m *TransferManager) Retry(id string) error {
 	item.Progress = 0
 	item.Error = ""
 	item.UpdatedAt = time.Now().UTC()
+	_ = m.persistLocked()
 	m.mu.Unlock()
 
 	m.queue <- job
@@ -171,6 +293,7 @@ func (m *TransferManager) Cancel(id string) error {
 	item.Stage = "Cancelled"
 	item.Error = ""
 	item.UpdatedAt = time.Now().UTC()
+	_ = m.persistLocked()
 	m.mu.Unlock()
 	m.engine.notifyProgress()
 	return nil
@@ -179,6 +302,7 @@ func (m *TransferManager) Cancel(id string) error {
 func (m *TransferManager) SetPaused(paused bool) {
 	m.mu.Lock()
 	m.paused = paused
+	_ = m.persistLocked()
 	m.mu.Unlock()
 	m.engine.notifyProgress()
 }
@@ -291,6 +415,7 @@ func (m *TransferManager) process(job transferJob) {
 	m.update(job.ID, "running", "Preparing", 3, "")
 	source := job.Path
 	cipherName := ""
+	keyWrap := ""
 	var encryptedPath string
 
 	if job.Visibility == "private" {
@@ -309,7 +434,16 @@ func (m *TransferManager) process(job transferJob) {
 			return
 		}
 		encryptedPath = filepath.Join(m.engine.home, "tmp", fileID+".13xenc")
-		key := derivePrivateKey(code, fileID)
+		key, err := generateFileKey()
+		if err != nil {
+			m.fail(job.ID, err)
+			return
+		}
+		keyWrap, err = wrapFileKey(code, fileID, key)
+		if err != nil {
+			m.fail(job.ID, err)
+			return
+		}
 		cipherName = privateCipherName
 		m.update(job.ID, "running", "Encrypting", 5, "")
 		err = encryptFile(ctx, job.Path, encryptedPath, key, m.waitWhilePaused, func(done, total int64) {
@@ -357,6 +491,7 @@ func (m *TransferManager) process(job transferJob) {
 		"mime":       mimeType,
 		"visibility": job.Visibility,
 		"cipher":     cipherName,
+		"keyWrap":    keyWrap,
 	}
 	payload, _ := json.Marshal(register)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+vaultAPIAddr+"/api/register", bytes.NewReader(payload))
@@ -391,11 +526,17 @@ func (m *TransferManager) update(id, status, stage string, progress int, message
 			m.mu.Unlock()
 			return
 		}
+		oldStatus := item.Status
+		oldStage := item.Stage
+		oldProgress := item.Progress
 		item.Status = status
 		item.Stage = stage
 		item.Progress = progress
 		item.Error = message
 		item.UpdatedAt = time.Now().UTC()
+		if oldStatus != status || oldStage != stage || progress == 100 || progress >= oldProgress+5 {
+			_ = m.persistLocked()
+		}
 	}
 	m.mu.Unlock()
 	m.engine.notifyProgress()
@@ -406,6 +547,7 @@ func (m *TransferManager) updateCID(id, cid string) {
 	if item := m.items[id]; item != nil {
 		item.CID = cid
 		item.UpdatedAt = time.Now().UTC()
+		_ = m.persistLocked()
 	}
 	m.mu.Unlock()
 }

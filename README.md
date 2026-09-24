@@ -1,60 +1,79 @@
 # 13xfile
 
-13xfile is being rebuilt as a decentralized encrypted storage network.
+13xfile is a decentralized encrypted storage network built around content-addressed IPFS blocks, signed device metadata operations, and independent storage peers.
 
-## Current prototype
+## MVP layout
 
 ```text
 13xfile/
-├── node/       headless storage peer + web mechanics demo
-├── desktop/    standalone desktop client
+├── node/       headless storage peer
+├── desktop/    standalone desktop application
+├── share/      static public-file receiver page
 └── docs/
 ```
 
-There is no 13xfile-owned central API or database in the current architecture.
+There is no 13xfile-owned account server, canonical file database, or central storage API.
 
-## Headless node
+## MVP protocol
 
-`13xfile-node` turns a server or computer into a storage peer. It self-manages a pinned, checksum-verified Kubo runtime and keeps an isolated IPFS repo.
+Each device has its own Ed25519 device identity. Vault metadata is represented as signed append-only operations such as:
 
-Current node capabilities include:
+- `file.add`
+- `file.remove`
+- `replica.ack`
 
-- stable peer identity
-- IPFS/libp2p connectivity
-- bounded local storage
-- pin/unpin/GC/status
-- decentralized demo vault metadata through IPNS
-- automatic pinning of file CIDs learned from the vault
-- embedded web mechanics demo
+A replica is counted only after a distinct device signs a receipt after completing its IPFS pin. The desktop therefore shows real `n / target` durability instead of inferring replicas from CID/provider announcements.
 
-See `node/README.md`.
+IPNS is still used as the mutable discovery pointer for the merged vault operation log. The current MVP retains the shared vault publishing key derived from the recovery code; replacing that final shared writer with a stronger multi-writer discovery layer remains post-MVP work.
 
-## Desktop prototype
+## Private files
 
-`/desktop` is the first standalone client experience. It owns its own node lifecycle rather than requiring a separately launched `13xfile-node`.
+New private uploads use:
 
-Current desktop capabilities include:
+1. a random 256-bit per-file key;
+2. chunked AES-256-GCM encryption before IPFS;
+3. a vault-derived AES-GCM key-wrap around the random file key.
 
-- Wails v3 native desktop shell
-- React + TypeScript + Tailwind + shadcn-style UI
-- system tray and close-to-background behavior
-- multiple drag/drop uploads
-- concurrent transfer queue + mini transfer tray
-- public files
-- private files encrypted locally before IPFS with chunked AES-256-GCM
-- decentralized vault file-list sync
-- automatic local replication of learned CIDs
-- public/private `13xfile://share/...` descriptors
-- static HTTPS one-click sharing for public files with selectable public-IPFS mirror origins and desktop QR sharing
-- private link decryption capability inside the desktop client
-- no central 13xfile API/database
+Storage peers only need the encrypted CID and wrapped-key metadata. They do not need the plaintext file key.
+
+Older private files from the first prototype remain readable through the legacy deterministic-key fallback.
+
+## Desktop MVP
+
+The Wails desktop client owns its own node and Kubo runtime. Current features include:
+
+- create/join vault onboarding and recovery-code reminder
+- drag/drop and multi-file uploads
+- three concurrent transfer workers
+- persistent transfer journal and restart recovery
+- Google Drive-style transfer tray
+- private-by-default encrypted uploads
+- signed replica receipts and configurable replication target
+- file details with individual device receipts
+- search
+- native save-to-download-folder
+- signed metadata removal/tombstones
+- system tray / close-to-background behavior
+- optional start-at-login
+- configurable storage allocation
+- public HTTPS sharing with QR codes
+- selectable independent public-IPFS download mirrors
+- `x13file://` app-share deep-link support
+- legacy `13xfile://` link parsing
+- no central 13xfile backend
 
 See `desktop/README.md`.
 
-## Prototype limitations
+## Headless node
 
-The current IPNS shared-manifest design is intentionally temporary. It proves decentralized file discovery and synchronization but is not the final multi-writer metadata architecture. The intended production direction is a signed append-only operation log / CRDT.
+`13xfile-node` is the always-on/server peer. It self-manages a pinned Kubo runtime, keeps an isolated IPFS repository, follows vault metadata, pins learned CIDs, and publishes signed replica receipts after successful storage.
 
-The protocol also does not yet have durable replication acknowledgements, so the clients must not claim an exact replica count until peers can explicitly prove they completed storage.
+See `node/README.md`.
 
-Mobile remains deferred until the desktop/node protocol is stable.
+## Remaining MVP limitations
+
+- IPNS discovery still uses shared recovery-code publishing authority.
+- Every joined peer currently attempts to replicate every vault file; storage placement/leases are not yet selective.
+- Private browser sharing is intentionally deferred.
+- Public browser sharing currently uses a temporary static-page hosting path and best-effort public IPFS gateways.
+- Mobile remains deferred until the desktop/node protocol settles.

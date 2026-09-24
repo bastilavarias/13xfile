@@ -61,11 +61,35 @@ func TestPublicWebShareLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(appLink, "13xfile://share/") {
+	if !strings.HasPrefix(appLink, appSharePrefix) {
 		t.Fatalf("unexpected app share link: %s", appLink)
 	}
 	if !strings.HasPrefix(webLink, publicWebShareBase+"#") {
 		t.Fatalf("unexpected web share link: %s", webLink)
+	}
+}
+
+func TestRandomFileKeyWrapRoundTrip(t *testing.T) {
+	fileKey, err := generateFileKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wrapped, err := wrapFileKey("VAULT-RECOVERY-CODE-123", "file-123", fileKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wrapped == "" || wrapped == encodeKey(fileKey) {
+		t.Fatal("wrapped key should not expose the raw file key")
+	}
+	got, err := unwrapFileKey("VAULT-RECOVERY-CODE-123", "file-123", wrapped)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, fileKey) {
+		t.Fatal("unwrapped file key does not match")
+	}
+	if _, err := unwrapFileKey("WRONG-VAULT", "file-123", wrapped); err == nil {
+		t.Fatal("expected wrong vault code to fail key unwrap")
 	}
 }
 

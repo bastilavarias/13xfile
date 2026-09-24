@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +22,7 @@ func (e *DesktopEngine) routes() http.Handler {
 		writeDesktopJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
 	mux.HandleFunc("/api/state", e.handleState)
+	mux.HandleFunc("/api/settings", e.handleSettings)
 	mux.HandleFunc("/api/vault", e.handleVault)
 	mux.HandleFunc("/api/uploads/paths", e.handleUploadPaths)
 	mux.HandleFunc("/api/uploads/files", e.handleUploadFiles)
@@ -31,7 +35,16 @@ func (e *DesktopEngine) routes() http.Handler {
 
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := strings.TrimSpace(r.Header.Get("Origin"))
+		if !desktopOriginAllowed(origin) {
+			http.Error(w, "forbidden origin", http.StatusForbidden)
+			return
+		}
+
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+		}
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
 		w.Header().Set("Cache-Control", "no-store")
@@ -43,12 +56,59 @@ func withCORS(next http.Handler) http.Handler {
 	})
 }
 
+func desktopOriginAllowed(origin string) bool {
+	if origin == "" {
+		// Non-browser local clients such as the app's integration tests and
+		// command-line diagnostics do not send Origin.
+		return true
+	}
+
+	if configured := strings.TrimSpace(os.Getenv("THIRTEENXFILE_DESKTOP_DEV_ORIGIN")); configured != "" && origin == configured {
+		return true
+	}
+
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+
+	switch parsed.Scheme {
+	case "http", "https":
+		return strings.EqualFold(parsed.Hostname(), "wails.localhost")
+	case "wails":
+		host := strings.ToLower(parsed.Hostname())
+		return host == "wails" || host == "localhost"
+	default:
+		return false
+	}
+}
+
 func (e *DesktopEngine) handleState(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	writeDesktopJSON(w, http.StatusOK, e.state())
+}
+
+func (e *DesktopEngine) handleSettings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		writeDesktopJSON(w, http.StatusOK, e.settings.Get())
+	case http.MethodPost:
+		var next Settings
+		if err := json.NewDecoder(io.LimitReader(r.Body, 64<<10)).Decode(&next); err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if err := e.applySettings(next); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeDesktopJSON(w, http.StatusOK, e.settings.Get())
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (e *DesktopEngine) handleVault(w http.ResponseWriter, r *http.Request) {
@@ -303,9 +363,97 @@ func (e *DesktopEngine) handleFileAction(w http.ResponseWriter, r *http.Request)
 			"link":    appLink,
 			"webLink": webLink,
 		})
+	case "save":
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		path, err := e.saveVaultFile(r.Context(), file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		writeDesktopJSON(w, http.StatusOK, map[string]any{"path": path})
+	case "remove":
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if err := e.removeVaultFile(r.Context(), file.ID); err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		writeDesktopJSON(w, http.StatusOK, map[string]any{"ok": true})
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func (e *DesktopEngine) saveVaultFile(ctx context.Context, file VaultFile) (string, error) {
+	dir := e.settings.Get().DownloadDir
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	path := uniqueDownloadPath(dir, file.Name)
+	tmp := path + ".13xpart"
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return "", err
+	}
+	streamErr := e.streamVaultFile(ctx, file, out)
+	closeErr := out.Close()
+	if streamErr != nil {
+		_ = os.Remove(tmp)
+		return "", streamErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmp)
+		return "", closeErr
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return "", err
+	}
+	return path, nil
+}
+
+func uniqueDownloadPath(dir, name string) string {
+	name = filepath.Base(strings.TrimSpace(name))
+	if name == "" || name == "." {
+		name = "13xfile-download"
+	}
+	path := filepath.Join(dir, name)
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return path
+	}
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	for i := 1; i < 10000; i++ {
+		candidate := filepath.Join(dir, fmt.Sprintf("%s (%d)%s", base, i, ext))
+		if _, err := os.Stat(candidate); errors.Is(err, os.ErrNotExist) {
+			return candidate
+		}
+	}
+	return filepath.Join(dir, fmt.Sprintf("%s-%d%s", base, time.Now().UnixNano(), ext))
+}
+
+func (e *DesktopEngine) removeVaultFile(ctx context.Context, id string) error {
+	payload, _ := json.Marshal(map[string]string{"id": id})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+vaultAPIAddr+"/api/remove", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 55 * time.Second}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<10))
+		return fmt.Errorf("remove metadata: HTTP %s: %s", resp.Status, strings.TrimSpace(string(raw)))
+	}
+	return nil
 }
 
 func (e *DesktopEngine) handleSharedContent(w http.ResponseWriter, r *http.Request) {

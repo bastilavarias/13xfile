@@ -24,7 +24,11 @@ type ShareDescriptor struct {
 	Key        string `json:"key,omitempty"`
 }
 
-const publicWebShareBase = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/bastilavarias/13xfile/prototype/share/index.html"
+const (
+	publicWebShareBase = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/bastilavarias/13xfile/prototype/share/index.html"
+	appSharePrefix     = "x13file://share/"
+	legacySharePrefix  = "13xfile://share/"
+)
 
 func (e *DesktopEngine) shareLinks(file VaultFile) (string, string, error) {
 	desc := ShareDescriptor{
@@ -41,18 +45,18 @@ func (e *DesktopEngine) shareLinks(file VaultFile) (string, string, error) {
 		desc.Visibility = "public"
 	}
 	if desc.Visibility == "private" {
-		code, err := e.vaultCode()
+		key, err := e.privateFileKey(file)
 		if err != nil {
 			return "", "", err
 		}
-		desc.Key = encodeKey(derivePrivateKey(code, file.ID))
+		desc.Key = encodeKey(key)
 	}
 	data, err := json.Marshal(desc)
 	if err != nil {
 		return "", "", err
 	}
 	payload := base64.RawURLEncoding.EncodeToString(data)
-	appLink := "13xfile://share/" + payload
+	appLink := appSharePrefix + payload
 	webLink := ""
 	if desc.Visibility == "public" {
 		webLink = publicWebShareBase + "#" + payload
@@ -61,9 +65,14 @@ func (e *DesktopEngine) shareLinks(file VaultFile) (string, string, error) {
 }
 
 func parseShareLink(value string) (ShareDescriptor, error) {
-	const prefix = "13xfile://share/"
 	value = strings.TrimSpace(value)
-	if !strings.HasPrefix(value, prefix) {
+	prefix := ""
+	switch {
+	case strings.HasPrefix(value, appSharePrefix):
+		prefix = appSharePrefix
+	case strings.HasPrefix(value, legacySharePrefix):
+		prefix = legacySharePrefix
+	default:
 		return ShareDescriptor{}, errors.New("invalid 13xfile share link")
 	}
 	raw, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(value, prefix))
@@ -91,17 +100,32 @@ func parseShareLink(value string) (ShareDescriptor, error) {
 	return desc, nil
 }
 
+func (e *DesktopEngine) privateFileKey(file VaultFile) ([]byte, error) {
+	if file.Visibility != "private" {
+		return nil, errors.New("file is not private")
+	}
+	if file.Cipher != privateCipherName {
+		return nil, errors.New("unsupported private file cipher")
+	}
+	code, err := e.vaultCode()
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(file.KeyWrap) != "" {
+		return unwrapFileKey(code, file.ID, file.KeyWrap)
+	}
+	// Backward compatibility with the first desktop prototype.
+	return derivePrivateKey(code, file.ID), nil
+}
+
 func (e *DesktopEngine) streamVaultFile(ctx context.Context, file VaultFile, w io.Writer) error {
 	var key []byte
 	if file.Visibility == "private" {
-		if file.Cipher != privateCipherName {
-			return errors.New("unsupported private file cipher")
-		}
-		code, err := e.vaultCode()
+		var err error
+		key, err = e.privateFileKey(file)
 		if err != nil {
 			return err
 		}
-		key = derivePrivateKey(code, file.ID)
 	}
 	return e.streamCID(ctx, file.CID, file.Visibility, key, w)
 }

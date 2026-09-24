@@ -14,7 +14,7 @@ import (
 	"github.com/13xfile/13xfile/node/internal/node"
 )
 
-const version = "0.2.0-dev"
+const version = "0.3.0-mvp"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {

@@ -111,12 +111,23 @@ func TestInitStatusPinAndDoctor(t *testing.T) {
 		t.Fatal("expected fake Kubo repo to exist")
 	}
 
+	updatedStorage, err := app.SetStorageMax("750GB")
+	if err != nil {
+		t.Fatalf("SetStorageMax: %v", err)
+	}
+	if updatedStorage != "750GB" {
+		t.Fatalf("unexpected updated storage %q", updatedStorage)
+	}
+
 	status, err := app.Status()
 	if err != nil {
 		t.Fatalf("Status before daemon: %v", err)
 	}
 	if status.Online || status.ConnectedPeers != 0 {
 		t.Fatalf("expected initialized node to remain offline before daemon readiness: %+v", status)
+	}
+	if status.StorageMax != "750GB" {
+		t.Fatalf("status did not persist updated storage: %+v", status)
 	}
 
 	if err := os.WriteFile(filepath.Join(initResult.RepoPath, "api"), []byte("/ip4/127.0.0.1/tcp/5001\n"), 0o600); err != nil {

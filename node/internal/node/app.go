@@ -171,6 +171,29 @@ func (a *App) Start(ctx context.Context, enableGC bool) error {
 	return k.daemon(ctx, enableGC)
 }
 
+func (a *App) SetStorageMax(storage string) (string, error) {
+	storage, err := normalizeStorage(storage)
+	if err != nil {
+		return "", err
+	}
+	k, err := a.loadedKubo()
+	if err != nil {
+		return "", err
+	}
+	if _, err := k.run(context.Background(), "config", "Datastore.StorageMax", storage); err != nil {
+		return "", err
+	}
+	cfg, err := loadConfig(a.configPath)
+	if err != nil {
+		return "", err
+	}
+	cfg.StorageMax = storage
+	if err := saveConfig(a.configPath, cfg); err != nil {
+		return "", err
+	}
+	return storage, nil
+}
+
 func (a *App) Status() (Status, error) {
 	binary, err := a.requireKubo()
 	if err != nil {

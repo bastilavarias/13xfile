@@ -9,12 +9,15 @@ import {
   File,
   FolderOpen,
   Globe2,
+  HardDrive,
   Link2,
   Lock,
   Pause,
   Play,
   RefreshCw,
+  Settings2,
   ShieldCheck,
+  Trash2,
   UploadCloud,
   X,
 } from "lucide-react"
@@ -40,6 +43,13 @@ import { Progress } from "@/components/ui/progress"
 
 const API = "http://127.0.0.1:8791/api"
 
+type ReplicaReceipt = {
+  deviceId: string
+  peerId?: string
+  cid: string
+  at: string
+}
+
 type VaultFile = {
   id: string
   name: string
@@ -48,7 +58,10 @@ type VaultFile = {
   mime: string
   visibility?: "public" | "private"
   cipher?: string
+  keyWrap?: string
   local: boolean
+  replicaCount?: number
+  replicas?: ReplicaReceipt[]
 }
 
 type Transfer = {
@@ -65,10 +78,19 @@ type Transfer = {
 
 type VaultStatus = {
   peerId: string
+  deviceId: string
   vaultId: string
   joinCode: string
   files: VaultFile[]
   lastError?: string
+}
+
+type Settings = {
+  replicationTarget: number
+  storageMax: string
+  keepRunningOnClose: boolean
+  startOnLogin: boolean
+  downloadDir: string
 }
 
 type AppState = {
@@ -79,6 +101,7 @@ type AppState = {
   vault?: VaultStatus
   transfers: Transfer[]
   paused: boolean
+  settings: Settings
   fatal?: string
 }
 
@@ -123,8 +146,11 @@ async function downloadBlob(url: string, fallbackName = "13xfile-download") {
 function App() {
   const [state, setState] = useState<AppState | null>(null)
   const [visibility, setVisibility] = useState<"private" | "public">("private")
+  const [searchQuery, setSearchQuery] = useState("")
   const [joinCode, setJoinCode] = useState("")
   const [vaultBusy, setVaultBusy] = useState(false)
+  const [recoveryOpen, setRecoveryOpen] = useState(false)
+  const [recoveryCode, setRecoveryCode] = useState("")
   const [staging, setStaging] = useState(false)
   const [trayOpen, setTrayOpen] = useState(true)
   const [shareOpen, setShareOpen] = useState(false)
@@ -134,6 +160,9 @@ function App() {
   const [shareVisibility, setShareVisibility] = useState<"public" | "private">("public")
   const [openLinkOpen, setOpenLinkOpen] = useState(false)
   const [incomingLink, setIncomingLink] = useState("")
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [draftSettings, setDraftSettings] = useState<Settings | null>(null)
+  const [detailFile, setDetailFile] = useState<VaultFile | null>(null)
   const [toast, setToast] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -156,11 +185,21 @@ function App() {
     const runtimePath = "/wails/runtime.js"
     import(/* @vite-ignore */ runtimePath)
       .then(({ Events }) => {
-        const off = Events.On("files-dropped", (event: { data?: { files?: string[] } }) => {
+        const offFiles = Events.On("files-dropped", (event: { data?: { files?: string[] } }) => {
           const files = event?.data?.files || []
           if (files.length) queuePaths(files)
         })
-        if (typeof off === "function") cleanup = off
+        const offShare = Events.On("share-link", (event: { data?: string } | string) => {
+          const value = typeof event === "string" ? event : event?.data
+          if (value?.startsWith("x13file://share/") || value?.startsWith("13xfile://share/")) {
+            setIncomingLink(value)
+            setOpenLinkOpen(true)
+          }
+        })
+        cleanup = () => {
+          if (typeof offFiles === "function") offFiles()
+          if (typeof offShare === "function") offShare()
+        }
       })
       .catch(() => {})
     return () => cleanup?.()
@@ -205,11 +244,15 @@ function App() {
   const createOrJoinVault = async (code = "") => {
     setVaultBusy(true)
     try {
-      await request("/vault", {
+      const vault = await request<VaultStatus>("/vault", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ code: code.trim() }),
       })
+      if (!code.trim()) {
+        setRecoveryCode(vault.joinCode)
+        setRecoveryOpen(true)
+      }
       await refresh()
     } catch (error) {
       flash(String(error))
@@ -243,7 +286,43 @@ function App() {
 
   const downloadFile = async (file: VaultFile) => {
     try {
-      await downloadBlob(API + `/files/${file.id}/content`, file.name)
+      const data = await request<{ path: string }>(`/files/${file.id}/save`, { method: "POST" })
+      flash(`Saved to ${data.path}`)
+    } catch (error) {
+      flash(String(error))
+    }
+  }
+
+  const removeFile = async (file: VaultFile) => {
+    const confirmed = window.confirm(`Remove "${file.name}" from this vault? This publishes a removal to the vault but does not erase copies already shared outside it.`)
+    if (!confirmed) return
+    try {
+      await request(`/files/${file.id}/remove`, { method: "POST" })
+      setDetailFile(null)
+      await refresh()
+      flash("File removed from vault")
+    } catch (error) {
+      flash(String(error))
+    }
+  }
+
+  const openSettings = () => {
+    if (!state) return
+    setDraftSettings({ ...state.settings })
+    setSettingsOpen(true)
+  }
+
+  const saveSettings = async () => {
+    if (!draftSettings) return
+    try {
+      await request<Settings>("/settings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(draftSettings),
+      })
+      setSettingsOpen(false)
+      await refresh()
+      flash("Settings saved")
     } catch (error) {
       flash(String(error))
     }
@@ -269,6 +348,15 @@ function App() {
     })
     refresh()
   }
+
+  useEffect(() => {
+    const incoming = new URLSearchParams(window.location.search).get("share")
+    if (incoming?.startsWith("x13file://share/") || incoming?.startsWith("13xfile://share/")) {
+      setIncomingLink(incoming)
+      setOpenLinkOpen(true)
+      window.history.replaceState({}, "", window.location.pathname)
+    }
+  }, [])
 
   const activeTransfers = state?.transfers.filter((t) => t.status === "queued" || t.status === "running") || []
   const visibleTransfers = state?.transfers.slice(0, 6) || []
@@ -304,7 +392,7 @@ function App() {
             </Button>
           </div>
           <p className="mt-5 text-[11px] leading-5 text-muted-foreground">
-            Prototype note: the vault code is currently the shared demo authority. Treat it as a secret.
+            Your vault recovery code is required to add another device. Keep it private and store a copy somewhere safe.
           </p>
         </section>
         {toast && <Toast text={toast} />}
@@ -313,6 +401,9 @@ function App() {
   }
 
   const files = state.vault?.files || []
+  const filteredFiles = files.filter((file) =>
+    file.name.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+  )
 
   return (
     <div className="min-h-screen">
@@ -329,6 +420,9 @@ function App() {
           <Button variant="ghost" size="sm" onClick={() => setOpenLinkOpen(true)}>
             <Link2 className="h-4 w-4" /> Open link
           </Button>
+          <Button variant="ghost" size="sm" onClick={openSettings}>
+            <Settings2 className="h-4 w-4" /> Settings
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
@@ -337,7 +431,7 @@ function App() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => copy(state.vault?.joinCode || "", "Vault code copied")}>
-                <Copy className="mr-2 h-4 w-4" /> Copy join code
+                <Copy className="mr-2 h-4 w-4" /> Copy recovery code
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => copy(state.vault?.vaultId || "", "Vault ID copied")}>
                 <ShieldCheck className="mr-2 h-4 w-4" /> Copy vault ID
@@ -392,28 +486,40 @@ function App() {
         </section>
 
         <section>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-end justify-between gap-4">
             <div>
               <h2 className="text-sm font-semibold">Files</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">{files.length} in this vault</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {files.length} files · {files.filter((file) => (file.replicaCount || 0) >= state.settings.replicationTarget).length} safe
+              </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={refresh}>
-              <RefreshCw className="h-3.5 w-3.5" /> Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search files"
+                className="h-8 w-56 text-xs"
+              />
+              <Button variant="ghost" size="sm" onClick={refresh}>
+                <RefreshCw className="h-3.5 w-3.5" /> Refresh
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-xl border bg-background">
-            {files.length === 0 ? (
+            {filteredFiles.length === 0 ? (
               <div className="py-16 text-center">
                 <File className="mx-auto mb-3 h-6 w-6 text-muted-foreground" />
-                <p className="text-sm">Nothing here yet</p>
-                <p className="mt-1 text-xs text-muted-foreground">Drop a file above to prove the network.</p>
+                <p className="text-sm">{files.length ? "No matching files" : "Nothing here yet"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {files.length ? "Try another search." : "Drop files above to add them to this vault."}
+                </p>
               </div>
             ) : (
-              files.map((file, index) => (
+              filteredFiles.map((file, index) => (
                 <div
                   key={file.id}
-                  className={`grid grid-cols-[minmax(0,1fr)_110px_125px_140px_42px] items-center gap-4 px-4 py-3.5 ${index ? "border-t" : ""}`}
+                  className={`grid grid-cols-[minmax(0,1fr)_100px_115px_175px_42px] items-center gap-4 px-4 py-3.5 ${index ? "border-t" : ""}`}
                 >
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{file.name}</div>
@@ -428,10 +534,24 @@ function App() {
                       {file.visibility === "private" ? "Private" : "Public"}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className={`h-1.5 w-1.5 rounded-full ${file.local ? "bg-emerald-500" : "bg-amber-500"}`} />
-                    <span className="text-muted-foreground">{file.local ? "Stored here" : "Replicating"}</span>
-                  </div>
+                  <button className="text-left" onClick={() => setDetailFile(file)}>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          (file.replicaCount || 0) >= state.settings.replicationTarget ? "bg-emerald-500" : "bg-amber-500"
+                        }`}
+                      />
+                      <span className="font-medium">
+                        {file.replicaCount || 0}/{state.settings.replicationTarget}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {(file.replicaCount || 0) >= state.settings.replicationTarget ? "Safe" : "Replicating"}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[10px] text-muted-foreground">
+                      {file.local ? "Stored on this device" : "Retrieving to this device"}
+                    </div>
+                  </button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon"><Ellipsis className="h-4 w-4" /></Button>
@@ -444,8 +564,15 @@ function App() {
                         <Link2 className="mr-2 h-4 w-4" /> Share
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setDetailFile(file)}>
+                        <HardDrive className="mr-2 h-4 w-4" /> Details
+                      </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => copy(file.cid, "CID copied")}>
                         <Copy className="mr-2 h-4 w-4" /> Copy CID
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => removeFile(file)} className="text-red-600">
+                        <Trash2 className="mr-2 h-4 w-4" /> Remove from vault
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -455,7 +582,9 @@ function App() {
           </div>
 
           {state.vault?.lastError && (
-            <p className="mt-3 text-xs text-amber-700">Vault sync: {state.vault.lastError}</p>
+            <p className="mt-3 text-xs text-amber-700">
+              Vault sync needs attention. Open Settings → Diagnostics for technical details.
+            </p>
           )}
         </section>
       </main>
@@ -519,6 +648,29 @@ function App() {
         </aside>
       )}
 
+      <Dialog open={recoveryOpen} onOpenChange={setRecoveryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save your recovery code</DialogTitle>
+            <DialogDescription>
+              This code lets another 13xfile device join your vault. Treat it like a password.
+            </DialogDescription>
+          </DialogHeader>
+          <button
+            className="rounded-xl border bg-muted/40 px-4 py-4 text-center font-mono text-sm font-semibold tracking-wider hover:bg-muted"
+            onClick={() => copy(recoveryCode, "Recovery code copied")}
+          >
+            {recoveryCode}
+          </button>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] leading-5 text-amber-900">
+            Anyone with this code can join the current MVP vault. Store it privately before continuing.
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => setRecoveryOpen(false)}>I saved it</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent className={shareVisibility === "public" ? "max-w-2xl" : undefined}>
           <DialogHeader>
@@ -571,20 +723,206 @@ function App() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={detailFile !== null} onOpenChange={(open) => !open && setDetailFile(null)}>
+        <DialogContent className="max-w-xl">
+          {detailFile && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="pr-7">{detailFile.name}</DialogTitle>
+                <DialogDescription>
+                  {detailFile.visibility === "private"
+                    ? "Encrypted locally before entering the IPFS network."
+                    : "Public IPFS content that can be shared through a browser link."}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-lg border p-3">
+                  <div className="text-muted-foreground">Size</div>
+                  <div className="mt-1 font-medium">{formatBytes(detailFile.size)}</div>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="text-muted-foreground">Replication</div>
+                  <div className="mt-1 font-medium">
+                    {detailFile.replicaCount || 0}/{state.settings.replicationTarget}
+                    {(detailFile.replicaCount || 0) >= state.settings.replicationTarget ? " · Safe" : " · Replicating"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-xs font-medium">Storage receipts</div>
+                <div className="overflow-hidden rounded-lg border">
+                  {(detailFile.replicas || []).length ? (
+                    (detailFile.replicas || []).map((receipt) => (
+                      <div key={receipt.deviceId} className="flex items-center justify-between gap-4 border-b px-3 py-2.5 text-xs last:border-b-0">
+                        <div className="min-w-0">
+                          <div className="font-medium">Device {receipt.deviceId.slice(0, 8)}</div>
+                          <div className="mt-0.5 truncate font-mono text-[9px] text-muted-foreground">
+                            {receipt.peerId || "peer identity unavailable"}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-[10px] text-muted-foreground">
+                          {new Date(receipt.at).toLocaleString()}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-5 text-center text-xs text-muted-foreground">
+                      Waiting for signed replica receipts.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="text-xs font-medium">Content ID</div>
+                <button
+                  className="w-full rounded-lg border bg-muted/40 px-3 py-2 text-left font-mono text-[10px] break-all hover:bg-muted"
+                  onClick={() => copy(detailFile.cid, "CID copied")}
+                >
+                  {detailFile.cid}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <Button variant="ghost" className="text-red-600" onClick={() => removeFile(detailFile)}>
+                  <Trash2 className="h-4 w-4" /> Remove
+                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => downloadFile(detailFile)}>
+                    <Download className="h-4 w-4" /> Download
+                  </Button>
+                  <Button onClick={() => openShare(detailFile)}>
+                    <Link2 className="h-4 w-4" /> Share
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
+              Storage, replication, background behavior, and node diagnostics.
+            </DialogDescription>
+          </DialogHeader>
+
+          {draftSettings && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="space-y-1.5 text-xs font-medium">
+                  <span>Replication target</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={draftSettings.replicationTarget}
+                    onChange={(e) =>
+                      setDraftSettings({ ...draftSettings, replicationTarget: Number(e.target.value) || 1 })
+                    }
+                  />
+                  <span className="block text-[10px] font-normal leading-4 text-muted-foreground">
+                    A file is marked Safe only after this many signed device receipts.
+                  </span>
+                </label>
+
+                <label className="space-y-1.5 text-xs font-medium">
+                  <span>Storage allocation</span>
+                  <Input
+                    value={draftSettings.storageMax}
+                    onChange={(e) => setDraftSettings({ ...draftSettings, storageMax: e.target.value })}
+                    placeholder="20GB"
+                  />
+                  <span className="block text-[10px] font-normal leading-4 text-muted-foreground">
+                    Examples: 20GB, 100GB, 1TB.
+                  </span>
+                </label>
+              </div>
+
+              <label className="block space-y-1.5 text-xs font-medium">
+                <span>Download folder</span>
+                <Input
+                  value={draftSettings.downloadDir}
+                  onChange={(e) => setDraftSettings({ ...draftSettings, downloadDir: e.target.value })}
+                />
+              </label>
+
+              <div className="overflow-hidden rounded-lg border">
+                <label className="flex cursor-pointer items-center justify-between gap-4 border-b px-3 py-3">
+                  <div>
+                    <div className="text-xs font-medium">Keep node running when window closes</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      Transfers, serving, and replication continue from the system tray.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-black"
+                    checked={draftSettings.keepRunningOnClose}
+                    onChange={(e) =>
+                      setDraftSettings({ ...draftSettings, keepRunningOnClose: e.target.checked })
+                    }
+                  />
+                </label>
+                <label className="flex cursor-pointer items-center justify-between gap-4 px-3 py-3">
+                  <div>
+                    <div className="text-xs font-medium">Start 13xfile when I sign in</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      Uses the native OS login-start mechanism.
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-black"
+                    checked={draftSettings.startOnLogin}
+                    onChange={(e) => setDraftSettings({ ...draftSettings, startOnLogin: e.target.checked })}
+                  />
+                </label>
+              </div>
+
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="mb-2 text-xs font-medium">Diagnostics</div>
+                <div className="grid gap-1.5 font-mono text-[9px] text-muted-foreground">
+                  <div>Peer: {state.vault?.peerId || state.peerId || "starting"}</div>
+                  <div>Device: {state.vault?.deviceId || "initializing"}</div>
+                  <div>Vault: {state.vault?.vaultId || "not ready"}</div>
+                  <div>Connected peers: {state.connectedPeers}</div>
+                  {state.vault?.lastError && (
+                    <div className="mt-1 break-words text-amber-700">Last sync error: {state.vault.lastError}</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={saveSettings}>Save settings</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={openLinkOpen} onOpenChange={setOpenLinkOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Open a 13xfile link</DialogTitle>
-            <DialogDescription>Paste a public or private share link from another vault.</DialogDescription>
+            <DialogDescription>Paste a public or private 13xfile app link.</DialogDescription>
           </DialogHeader>
           <Input
             value={incomingLink}
             onChange={(e) => setIncomingLink(e.target.value)}
-            placeholder="13xfile://share/..."
+            placeholder="x13file://share/..."
             className="font-mono text-xs"
           />
           <div className="flex justify-end">
-            <Button disabled={!incomingLink.startsWith("13xfile://share/")} onClick={downloadIncoming}>
+            <Button
+              disabled={!incomingLink.startsWith("x13file://share/") && !incomingLink.startsWith("13xfile://share/")}
+              onClick={downloadIncoming}
+            >
               <Download className="h-4 w-4" /> Download
             </Button>
           </div>
