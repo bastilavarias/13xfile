@@ -111,15 +111,13 @@ The files should appear in PC B's local UI because PC B is running its own peer,
 
 ## Public web sharing
 
-Public files now expose a normal browser link:
+Public files now expose a normal browser link. For the prototype, the committed static share page is loaded through an HTML preview host, while its assets are served directly from the public repository branch. The descriptor remains in the URL fragment.
 
-```text
-https://bastilavarias.github.io/13xfile/share/#<descriptor>
-```
-
-The receiver does not need 13xfile Desktop. The page is static and keeps the file descriptor in the URL fragment, so there is no 13xfile account/file database behind the share page.
+The receiver does not need 13xfile Desktop. There is no 13xfile account/file database behind the share page.
 
 Browser transport is intentionally isolated in `/share/gateways.js` so the retrieval strategy can be replaced without changing the desktop share format.
+
+A GitHub Pages deployment workflow is also included; once Pages is enabled for the repository, the desktop share base can be switched to the cleaner GitHub Pages URL.
 
 Private files do **not** get a web-share link yet.
 

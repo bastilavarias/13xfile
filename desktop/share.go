@@ -24,7 +24,7 @@ type ShareDescriptor struct {
 	Key        string `json:"key,omitempty"`
 }
 
-const publicWebShareBase = "https://bastilavarias.github.io/13xfile/share/"
+const publicWebShareBase = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/bastilavarias/13xfile/prototype/share/index.html"
 
 func (e *DesktopEngine) shareLinks(file VaultFile) (string, string, error) {
 	desc := ShareDescriptor{
