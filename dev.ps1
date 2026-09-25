@@ -48,12 +48,35 @@ try {
             throw "Development updater only pulls main. Current branch: '$branch'. Switch with: git switch main"
         }
 
+        # frontend/dist is committed because the Wails binary embeds it, but it is still
+        # generated output. A local dev build can legitimately make it dirty. Reset only
+        # this generated directory before checking for real source changes.
+        $generatedChanges = git status --porcelain -- desktop/frontend/dist
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not inspect generated frontend output."
+        }
+        if ($generatedChanges) {
+            Write-Host ""
+            Write-Host "==> Reset generated frontend build output" -ForegroundColor DarkCyan
+            git restore --source=HEAD --staged --worktree -- desktop/frontend/dist
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not reset generated frontend output."
+            }
+            git clean -fd -- desktop/frontend/dist | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                throw "Could not clean generated frontend output."
+            }
+        }
+
         $dirty = git status --porcelain
         if ($LASTEXITCODE -ne 0) {
             throw "Could not read Git working tree status."
         }
         if ($dirty) {
-            throw "Working tree has local changes. Commit or stash them before running the development updater."
+            Write-Host ""
+            Write-Host "Real local source changes are still present:" -ForegroundColor Yellow
+            git status --short
+            throw "Commit or stash source changes before running the development updater."
         }
 
         Invoke-Step "Pull latest main" {

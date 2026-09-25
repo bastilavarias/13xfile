@@ -82,7 +82,7 @@ Useful options:
 .\\dev.cmd -CleanInstall # force npm ci before building
 ```
 
-The updater refuses to pull when the working tree has uncommitted changes or the current branch is not `main`.
+The updater automatically discards generated `desktop/frontend/dist` changes from prior local builds, but still refuses to pull when real source files have uncommitted changes or the current branch is not `main`.
 
 ## Headless node
 
