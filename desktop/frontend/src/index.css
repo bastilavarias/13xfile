@@ -514,6 +514,24 @@
   overflow: auto;
 }
 
+.transfer-pagination {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-top: 1px solid hsl(var(--border-subtle));
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--surface-2) / .72);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.transfer-pagination button {
+  width: 30px;
+  height: 30px;
+}
+
 .transfer-row {
   display: flex;
   align-items: flex-start;

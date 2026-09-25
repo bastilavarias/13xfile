@@ -297,6 +297,8 @@ func (e *DesktopEngine) handleTransferAction(w http.ResponseWriter, r *http.Requ
 		err = e.transfers.Cancel(id)
 	case "retry":
 		err = e.transfers.Retry(id)
+	case "remove":
+		err = e.transfers.Remove(id)
 	default:
 		http.NotFound(w, r)
 		return

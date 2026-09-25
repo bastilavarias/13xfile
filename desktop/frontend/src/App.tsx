@@ -6,6 +6,8 @@ import {
   Bell,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   Download,
   Ellipsis,
@@ -55,7 +57,7 @@ const API = "http://127.0.0.1:8791/api"
 const THEME_KEY = "13xfile-theme"
 
 type Theme = "dark" | "light"
-type ActiveSection = "vault" | "shared" | "transfers" | "activity"
+type ActiveSection = "vault" | "transfers" | "activity"
 
 type ReplicaReceipt = {
   deviceId: string
@@ -180,6 +182,7 @@ function App() {
   const [recoveryCode, setRecoveryCode] = useState("")
   const [staging, setStaging] = useState(false)
   const [trayOpen, setTrayOpen] = useState(true)
+  const [trayPage, setTrayPage] = useState(0)
   const [shareOpen, setShareOpen] = useState(false)
   const [shareLink, setShareLink] = useState("")
   const [webShareLink, setWebShareLink] = useState("")
@@ -384,6 +387,16 @@ function App() {
     refresh()
   }
 
+  const removeTransfer = async (transfer: Transfer) => {
+    try {
+      await request(`/transfers/${transfer.id}/remove`, { method: "POST" })
+      await refresh()
+      flash("Transfer removed")
+    } catch (error) {
+      flash(String(error))
+    }
+  }
+
   useEffect(() => {
     const incoming = new URLSearchParams(window.location.search).get("share")
     if (incoming?.startsWith("x13file://share/") || incoming?.startsWith("13xfile://share/")) {
@@ -395,11 +408,18 @@ function App() {
 
   const activeTransfers =
     state?.transfers.filter((transfer) => transfer.status === "queued" || transfer.status === "running") || []
-  const visibleTransfers = state?.transfers.slice(0, 6) || []
+  const transferPageSize = 3
+  const transferPageCount = Math.max(1, Math.ceil((state?.transfers.length || 0) / transferPageSize))
+  const visibleTransfers =
+    state?.transfers.slice(trayPage * transferPageSize, trayPage * transferPageSize + transferPageSize) || []
   const aggregate = useMemo(() => {
     if (!activeTransfers.length) return 100
     return Math.round(activeTransfers.reduce((sum, item) => sum + item.progress, 0) / activeTransfers.length)
   }, [activeTransfers])
+
+  useEffect(() => {
+    setTrayPage((page) => Math.min(page, transferPageCount - 1))
+  }, [transferPageCount])
 
   if (!state) {
     return (
@@ -456,7 +476,7 @@ function App() {
 
   const files = state.vault?.files || []
   const scopedFiles = files.filter((file) => {
-    if (activeSection === "shared" || fileFilter === "public") return file.visibility !== "private"
+    if (fileFilter === "public") return file.visibility !== "private"
     if (fileFilter === "encrypted") return file.visibility === "private"
     return true
   })
@@ -475,13 +495,6 @@ function App() {
     count?: number
   }> = [
     { key: "vault", label: "Vault", subtitle: "Your files", icon: Files },
-    {
-      key: "shared",
-      label: "Shared",
-      subtitle: "Public links",
-      icon: Link2,
-      count: files.filter((file) => file.visibility !== "private").length,
-    },
     { key: "transfers", label: "Transfers", subtitle: "Uploads & downloads", icon: ArrowUpDown, count: activeTransfers.length },
     { key: "activity", label: "Activity", subtitle: "Recent events", icon: Activity },
   ]
@@ -556,7 +569,6 @@ function App() {
                 onClick={() => {
                   setActiveSection(item.key)
                   if (item.key === "vault") setFileFilter("all")
-                  if (item.key === "shared") setFileFilter("public")
                 }}
               >
                 <Icon className="h-5 w-5" />
@@ -610,16 +622,14 @@ function App() {
           </div>
         )}
 
-        {(activeSection === "vault" || activeSection === "shared") && (
+        {activeSection === "vault" && (
           <>
             <section data-file-drop-target className="upload-zone">
               <div className="upload-zone-main">
                 <div className="upload-icon">
                   <UploadCloud className="h-8 w-8" />
                 </div>
-                <h2 className="mt-3 text-base font-semibold">
-                  {activeSection === "shared" ? "Share another public file" : "Drop files here to upload"}
-                </h2>
+                <h2 className="mt-3 text-base font-semibold">Drop files here to upload</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Encrypted files are protected locally. Public files can be shared through browser gateways.
                 </p>
@@ -681,11 +691,8 @@ function App() {
                     <Lock className="h-3.5 w-3.5" /> Encrypted
                   </button>
                   <button
-                    className={`filter-pill ${activeSection === "shared" ? "filter-pill-active" : ""}`}
-                    onClick={() => {
-                      setActiveSection("shared")
-                      setFileFilter("public")
-                    }}
+                    className={`filter-pill ${fileFilter === "public" ? "filter-pill-active" : ""}`}
+                    onClick={() => setFileFilter("public")}
                   >
                     <Globe2 className="h-3.5 w-3.5" /> Public
                   </button>
@@ -809,7 +816,7 @@ function App() {
                 </Button>
               )}
             </div>
-            <TransferRows transfers={state.transfers} refresh={refresh} />
+            <TransferRows transfers={state.transfers} refresh={refresh} onRemove={removeTransfer} />
           </section>
         )}
 
@@ -875,7 +882,36 @@ function App() {
             </div>
           </button>
           {activeTransfers.length > 0 && <Progress value={aggregate} className="rounded-none" />}
-          {trayOpen && <TransferRows transfers={visibleTransfers} compact refresh={refresh} />}
+          {trayOpen && (
+            <>
+              <TransferRows transfers={visibleTransfers} compact refresh={refresh} onRemove={removeTransfer} />
+              {state.transfers.length > transferPageSize && (
+                <div className="transfer-pagination">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={trayPage === 0}
+                    onClick={() => setTrayPage((page) => Math.max(0, page - 1))}
+                    aria-label="Previous transfer page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span>
+                    {trayPage + 1} / {transferPageCount}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={trayPage >= transferPageCount - 1}
+                    onClick={() => setTrayPage((page) => Math.min(transferPageCount - 1, page + 1))}
+                    aria-label="Next transfer page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
         </aside>
       )}
 
@@ -1330,10 +1366,12 @@ function TransferRows({
   transfers,
   compact = false,
   refresh,
+  onRemove,
 }: {
   transfers: Transfer[]
   compact?: boolean
   refresh: () => Promise<void>
+  onRemove: (transfer: Transfer) => Promise<void>
 }) {
   if (!transfers.length) {
     return <div className="py-12 text-center text-xs text-muted-foreground">No transfers yet.</div>
@@ -1341,51 +1379,73 @@ function TransferRows({
 
   return (
     <div className={compact ? "transfer-list compact" : "transfer-list"}>
-      {transfers.map((item) => (
-        <div className="transfer-row" key={item.id}>
-          <div className="file-type-icon">
-            {item.visibility === "private" ? <Lock className="h-4 w-4" /> : <File className="h-4 w-4" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-xs font-medium">{item.name}</div>
-                <div className="mt-1 text-[9px] text-muted-foreground">
-                  {item.stage} · {visibilityLabel(item.visibility)} · {formatBytes(item.size)}
+      {transfers.map((item) => {
+        const active = item.status === "queued" || item.status === "running"
+        const retryable = item.status === "failed" || item.status === "cancelled"
+
+        return (
+          <div className="transfer-row" key={item.id}>
+            <div className="file-type-icon">
+              {item.visibility === "private" ? <Lock className="h-4 w-4" /> : <File className="h-4 w-4" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-medium">{item.name}</div>
+                  <div className="mt-1 text-[9px] text-muted-foreground">
+                    {item.stage} · {visibilityLabel(item.visibility)} · {formatBytes(item.size)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {item.status === "complete" && <Check className="h-4 w-4 text-emerald-500" />}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" aria-label={`Actions for ${item.name}`}>
+                        <Ellipsis className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {active && (
+                        <DropdownMenuItem
+                          onSelect={() =>
+                            request(`/transfers/${item.id}/cancel`, { method: "POST" }).then(refresh)
+                          }
+                        >
+                          <X className="mr-2 h-4 w-4" /> Cancel transfer
+                        </DropdownMenuItem>
+                      )}
+                      {retryable && (
+                        <DropdownMenuItem
+                          onSelect={() =>
+                            request(`/transfers/${item.id}/retry`, { method: "POST" }).then(refresh)
+                          }
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4" /> Retry
+                        </DropdownMenuItem>
+                      )}
+                      {!active && (
+                        <>
+                          {retryable && <DropdownMenuSeparator />}
+                          <DropdownMenuItem className="text-red-600" onSelect={() => onRemove(item)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Remove from list
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                {item.status === "complete" ? (
-                  <Check className="h-4 w-4 text-emerald-500" />
-                ) : item.status === "failed" ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => request(`/transfers/${item.id}/retry`, { method: "POST" }).then(refresh)}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                  </Button>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => request(`/transfers/${item.id}/cancel`, { method: "POST" }).then(refresh)}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
+              {active && (
+                <div className="mt-2 flex items-center gap-2">
+                  <Progress value={item.progress} className="h-1.5 flex-1" />
+                  <span className="w-8 text-right text-[9px] font-medium text-primary">{item.progress}%</span>
+                </div>
+              )}
+              {item.error && <div className="mt-1 text-[9px] text-red-500">{item.error}</div>}
             </div>
-            {item.status !== "complete" && item.status !== "failed" && item.status !== "cancelled" && (
-              <div className="mt-2 flex items-center gap-2">
-                <Progress value={item.progress} className="h-1.5 flex-1" />
-                <span className="w-8 text-right text-[9px] font-medium text-primary">{item.progress}%</span>
-              </div>
-            )}
-            {item.error && <div className="mt-1 text-[9px] text-red-500">{item.error}</div>}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

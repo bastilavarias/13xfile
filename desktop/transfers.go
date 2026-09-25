@@ -299,6 +299,33 @@ func (m *TransferManager) Cancel(id string) error {
 	return nil
 }
 
+func (m *TransferManager) Remove(id string) error {
+	m.mu.Lock()
+	item, ok := m.items[id]
+	job, jobOK := m.jobs[id]
+	if !ok {
+		m.mu.Unlock()
+		return os.ErrNotExist
+	}
+	if item.Status == "queued" || item.Status == "running" {
+		m.mu.Unlock()
+		return errors.New("active transfer must be cancelled before removal")
+	}
+
+	delete(m.items, id)
+	delete(m.jobs, id)
+	delete(m.cancel, id)
+	err := m.persistLocked()
+	m.mu.Unlock()
+
+	if jobOK && job.Staged {
+		_ = os.Remove(job.Path)
+		_ = os.Remove(filepath.Dir(job.Path))
+	}
+	m.engine.notifyProgress()
+	return err
+}
+
 func (m *TransferManager) SetPaused(paused bool) {
 	m.mu.Lock()
 	m.paused = paused
