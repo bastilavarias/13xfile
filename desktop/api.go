@@ -159,14 +159,15 @@ func (e *DesktopEngine) handleUploadPaths(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var body struct {
-		Paths      []string `json:"paths"`
-		Visibility string   `json:"visibility"`
+		Paths       []string `json:"paths"`
+		Visibility  string   `json:"visibility"`
+		ShareToFeed bool     `json:"shareToFeed"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&body); err != nil {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
-	items, err := e.transfers.QueuePaths(body.Paths, body.Visibility, false)
+	items, err := e.transfers.QueuePaths(body.Paths, body.Visibility, false, body.ShareToFeed)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -185,6 +186,7 @@ func (e *DesktopEngine) handleUploadFiles(w http.ResponseWriter, r *http.Request
 	}
 
 	visibility := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("visibility")))
+	shareToFeed := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("shareToFeed")), "true")
 	if visibility == "" {
 		visibility = "private"
 	}
@@ -239,7 +241,7 @@ func (e *DesktopEngine) handleUploadFiles(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	items, err := e.transfers.QueuePaths(staged, visibility, true)
+	items, err := e.transfers.QueuePaths(staged, visibility, true, shareToFeed)
 	if err != nil {
 		cleanup()
 		http.Error(w, err.Error(), http.StatusBadRequest)

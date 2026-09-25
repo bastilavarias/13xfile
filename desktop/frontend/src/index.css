@@ -308,6 +308,46 @@
   box-shadow: 0 1px 6px rgba(0,0,0,.08), 0 0 0 1px hsl(var(--primary) / .14);
 }
 
+.feed-share-toggle {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  background: hsl(var(--surface-2) / .72);
+  cursor: pointer;
+  text-align: left;
+}
+
+.feed-share-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: hsl(var(--primary));
+}
+
+.feed-share-toggle span {
+  display: grid;
+  gap: 1px;
+}
+
+.feed-share-toggle strong {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.feed-share-toggle small {
+  color: hsl(var(--muted-foreground));
+  font-size: 7px;
+  white-space: nowrap;
+}
+
+.feed-share-toggle-disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
 .file-toolbar {
   min-height: 44px;
   display: flex;

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <title>13xfile Feed</title>
+  <meta name="description" content="Browse public files shared to the decentralized 13xfile feed." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="nav">
+    <a href="https://13xfile.app" class="brand"><img src="./wordmark.svg" alt="13xfile"></a>
+    <div class="feed-mark"><span></span> Feed</div>
+    <nav>
+      <a href="https://13xfile.app">Home</a>
+      <a href="https://13xfile.app/#about">About</a>
+      <a href="https://13xfile.app/#how">How it works</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="heading">
+      <div>
+        <span class="eyebrow">Public discovery</span>
+        <h1>13xfile Feed</h1>
+        <p>Searchable public metadata. File bytes remain on IPFS.</p>
+      </div>
+      <div class="network-state" id="network-state"><span></span><b>Connecting</b></div>
+    </section>
+
+    <section class="toolbar">
+      <label class="search">
+        <span>⌕</span>
+        <input id="search" placeholder="Search file name or CID" autocomplete="off">
+      </label>
+      <select id="category" aria-label="File category">
+        <option value="all">All types</option>
+        <option value="images">Images</option>
+        <option value="video">Video</option>
+        <option value="audio">Audio</option>
+        <option value="documents">Documents</option>
+        <option value="archives">Archives</option>
+      </select>
+      <select id="sort" aria-label="Sort feed">
+        <option value="latest">Latest</option>
+        <option value="oldest">Oldest</option>
+        <option value="name">Name A–Z</option>
+        <option value="size">Largest</option>
+      </select>
+      <button id="refresh" type="button">Refresh</button>
+    </section>
+
+    <section class="results-head">
+      <div><b id="result-count">0 files</b><span id="source-label"></span></div>
+      <span>Public files only</span>
+    </section>
+
+    <section class="file-list" id="file-list">
+      <div class="empty">Loading feed…</div>
+    </section>
+
+    <section class="pagination" id="pagination" hidden>
+      <button id="previous" type="button">← Previous</button>
+      <span id="page-label">Page 1</span>
+      <button id="next" type="button">Next →</button>
+    </section>
+
+    <section class="about-feed">
+      <img src="./emblem.svg" alt="">
+      <div>
+        <b>Discovery is replaceable.</b>
+        <p>The official API makes search fast, but accepted metadata is also published as immutable IPFS records and chained feed manifests. An independent indexer can rebuild this feed from the decentralized records.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="./config.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

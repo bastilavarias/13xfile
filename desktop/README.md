@@ -44,7 +44,7 @@ Local state is kept under:
 
 ### Encryption
 
-Encrypted is the default upload mode in the UI. The backend keeps the existing `private` visibility value for compatibility.
+Public is the default upload mode in the UI. Encrypted uploads remain available, and the backend keeps the existing `private` visibility value for compatibility.
 
 New encrypted files get a random 256-bit file key. File bytes are encrypted locally with chunked AES-256-GCM before entering IPFS. The random file key is wrapped with a vault-derived AES-GCM wrapping key and stored only as authenticated wrapped metadata.
 
@@ -69,15 +69,28 @@ Only receipts from devices with a fresh signed heartbeat count toward that numbe
 Public files expose:
 
 - normal HTTPS web link
-- QR code
 - `x13file://share/...` app link
 - CID
+
+QR presentation is currently hidden in both desktop and web share surfaces and can be re-enabled later.
 
 The static receiver page probes the IPFS Public Gateway Checker list against the actual CID from the recipient browser, recommends a working origin, and exposes alternatives like mirror links.
 
 Encrypted web sharing is deliberately not part of this MVP. Encrypted app links carry only the individual file decryption capability.
 
 `13xfile://share/...` links from the prototype remain accepted for backward compatibility, but `x13file://` is the canonical OS-registerable scheme because URI schemes cannot start with a digit.
+
+### Share to feed
+
+Public uploads can optionally enable **Share to feed**. The desktop then creates an immutable `13xfile.feed.entry` metadata object, pins that JSON through its own IPFS node, and submits only the metadata CID plus its projection to the separate feed API.
+
+The file upload still succeeds if feed publication fails. Configure a non-production feed API during development with:
+
+```text
+FEED_API_URL=http://127.0.0.1:8090
+```
+
+Encrypted files cannot be published to the public feed.
 
 ## Settings
 
@@ -95,8 +108,8 @@ Raw Kubo/IPNS errors are kept in Diagnostics instead of being dumped into the ma
 ## Windows development
 
 ```powershell
-git switch prototype
-git pull origin prototype
+git switch main
+git pull origin main
 
 cd desktop
 go run .

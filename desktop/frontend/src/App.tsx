@@ -178,6 +178,7 @@ function App() {
   const [fileHealth, setFileHealth] = useState<"all" | "safe" | "replicating">("all")
   const [vaultPage, setVaultPage] = useState(0)
   const [visibility, setVisibility] = useState<"private" | "public">("public")
+  const [shareToFeed, setShareToFeed] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [joinCode, setJoinCode] = useState("")
   const [vaultBusy, setVaultBusy] = useState(false)
@@ -242,7 +243,7 @@ function App() {
       })
       .catch(() => {})
     return () => cleanup?.()
-  }, [visibility, state?.vault?.vaultId])
+  }, [visibility, shareToFeed, state?.vault?.vaultId])
 
   const flash = (message: string) => {
     setToast(message.replace(/^Error:\s*/, ""))
@@ -255,7 +256,7 @@ function App() {
       await request("/uploads/paths", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ paths, visibility }),
+        body: JSON.stringify({ paths, visibility, shareToFeed }),
       })
       setTrayOpen(true)
       refresh()
@@ -270,7 +271,7 @@ function App() {
     Array.from(files).forEach((file) => form.append("files", file, file.name))
     setStaging(true)
     try {
-      const response = await fetch(API + `/uploads/files?visibility=${visibility}`, {
+      const response = await fetch(API + `/uploads/files?visibility=${visibility}&shareToFeed=${shareToFeed}`, {
         method: "POST",
         body: form,
       })
@@ -643,11 +644,26 @@ function App() {
                     </button>
                     <button
                       className={visibility === "private" ? "visibility-active" : ""}
-                      onClick={() => setVisibility("private")}
+                      onClick={() => {
+                        setVisibility("private")
+                        setShareToFeed(false)
+                      }}
                     >
                       <Lock className="h-3.5 w-3.5" /> Encrypted
                     </button>
                   </div>
+                  <label className={`feed-share-toggle ${visibility !== "public" ? "feed-share-toggle-disabled" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={shareToFeed}
+                      disabled={visibility !== "public"}
+                      onChange={(event) => setShareToFeed(event.target.checked)}
+                    />
+                    <span>
+                      <strong>Share to feed</strong>
+                      <small>Publish public file metadata for discovery</small>
+                    </span>
+                  </label>
                   <Button className="brand-button" onClick={() => inputRef.current?.click()} disabled={staging}>
                     <File className="h-4 w-4" /> Choose files
                   </Button>

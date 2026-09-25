@@ -36,19 +36,20 @@ type VaultStatus struct {
 }
 
 type Transfer struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	SourcePath string    `json:"-"`
-	Size       int64     `json:"size"`
-	Visibility string    `json:"visibility"`
-	Status     string    `json:"status"`
-	Stage      string    `json:"stage"`
-	Progress   int       `json:"progress"`
-	CID        string    `json:"cid,omitempty"`
-	Error      string    `json:"error,omitempty"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
-	Staged     bool      `json:"-"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	SourcePath  string    `json:"-"`
+	Size        int64     `json:"size"`
+	Visibility  string    `json:"visibility"`
+	Status      string    `json:"status"`
+	Stage       string    `json:"stage"`
+	Progress    int       `json:"progress"`
+	CID         string    `json:"cid,omitempty"`
+	Error       string    `json:"error,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+	Staged      bool      `json:"-"`
+	ShareToFeed bool      `json:"shareToFeed,omitempty"`
 }
 
 type AppState struct {

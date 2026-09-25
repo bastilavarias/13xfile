@@ -8,11 +8,14 @@
 13xfile/
 ├── node/       headless storage peer
 ├── desktop/    standalone desktop application
-├── share/      static public-file receiver page
+├── web/        main centralized product website (13xfile.app)
+├── feed/       public feed frontend (feed.13xfile.app)
+├── share/      static public-file receiver page (share.13xfile.app)
+├── api/        replaceable feed discovery/index API (api.13xfile.app)
 └── docs/
 ```
 
-There is no 13xfile-owned account server, canonical file database, or central storage API.
+13xfile does not use a central storage API for file bytes. The optional feed service is a centralized discovery/indexing convenience layer only: public file metadata is stored on IPFS, feed manifests are chained on IPFS/IPNS, and the SQLite index can be rebuilt or replaced.
 
 ## MVP protocol
 
@@ -47,7 +50,7 @@ The Wails desktop client owns its own node and Kubo runtime. Current features in
 - three concurrent transfer workers
 - persistent transfer journal and restart recovery
 - Google Drive-style transfer tray
-- private-by-default encrypted uploads
+- public-by-default uploads with optional local encryption
 - signed replica receipts and configurable replication target
 - file details with individual device receipts
 - search
@@ -56,11 +59,11 @@ The Wails desktop client owns its own node and Kubo runtime. Current features in
 - system tray / close-to-background behavior
 - optional start-at-login
 - configurable storage allocation
-- public HTTPS sharing with QR codes
+- public HTTPS sharing
 - selectable independent public-IPFS download mirrors
 - `x13file://` app-share deep-link support
 - legacy `13xfile://` link parsing
-- no central 13xfile backend
+- optional “Share to feed” metadata publishing through the separate feed index API
 
 See `desktop/README.md`.
 
@@ -95,5 +98,6 @@ See `node/README.md`.
 - IPNS discovery still uses shared recovery-code publishing authority.
 - Every joined peer currently attempts to replicate every vault file; storage placement/leases are not yet selective.
 - Private browser sharing is intentionally deferred.
-- Public browser sharing currently uses a temporary static-page hosting path and best-effort public IPFS gateways.
+- Public browser sharing currently uses a temporary static-page hosting path until share.13xfile.app is deployed.
+- Feed publisher metadata is not yet cryptographically signed by the desktop device; the v1 record format reserves a signature field for that next step.
 - Mobile remains deferred until the desktop/node protocol settles.

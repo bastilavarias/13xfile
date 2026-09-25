@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <title>13xfile — Decentralized file sharing</title>
+  <meta name="description" content="13xfile is a desktop-first decentralized file sharing client powered by IPFS." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="#home"><img src="./wordmark.svg" alt="13xfile"></a>
+    <nav>
+      <a href="#home">Home</a>
+      <a href="#about">About</a>
+      <a href="#how">How it works</a>
+      <a href="https://feed.13xfile.app">Feed</a>
+    </nav>
+    <a class="button ghost" href="https://github.com/bastilavarias/13xfile">GitHub</a>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="hero-copy">
+        <span class="eyebrow">Desktop-first • Powered by IPFS</span>
+        <h1>Share files without making one server the center of everything.</h1>
+        <p>13xfile is a desktop storage and sharing client where file bytes live on IPFS. Public links work in a browser, while encrypted files stay app-to-app.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="https://github.com/bastilavarias/13xfile">Get 13xfile</a>
+          <a class="button ghost" href="https://feed.13xfile.app">Browse the feed</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <img src="./emblem.svg" alt="" />
+        <div class="status"><span></span> Connected to IPFS</div>
+        <div class="mini-row"><b>Storage</b><span>Decentralized</span></div>
+        <div class="mini-row"><b>Public links</b><span>Browser-ready</span></div>
+        <div class="mini-row"><b>Encrypted files</b><span>Local-first</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="about">
+      <span class="eyebrow">About</span>
+      <h2>IPFS handles the files. 13xfile handles the experience.</h2>
+      <p class="lead">The app manages uploads, local encryption, replication, sharing, and peer presence without pretending a traditional cloud bucket is decentralized.</p>
+      <div class="grid three">
+        <article><h3>Content addressed</h3><p>Files are referenced by CID, so links describe content rather than a specific storage server.</p></article>
+        <article><h3>Encrypted when needed</h3><p>Sensitive files can be encrypted locally before being placed on the network.</p></article>
+        <article><h3>Public when intended</h3><p>Public files can be opened through share.13xfile.app and public IPFS gateways.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="how">
+      <span class="eyebrow">How it works</span>
+      <h2>Simple on the surface, decentralized underneath.</h2>
+      <div class="steps">
+        <article><span>01</span><div><h3>Upload</h3><p>Choose Public or Encrypted in the desktop app.</p></div></article>
+        <article><span>02</span><div><h3>Store on IPFS</h3><p>13xfile adds and replicates the content across participating peers.</p></div></article>
+        <article><span>03</span><div><h3>Share or publish</h3><p>Create a direct share link, or optionally publish public metadata to the 13xfile feed.</p></div></article>
+      </div>
+    </section>
+
+    <section class="section feed-callout">
+      <div>
+        <span class="eyebrow">13xfile Feed</span>
+        <h2>Discovery is separate from storage.</h2>
+        <p class="lead">The official feed can search and sort public metadata quickly, while the underlying metadata and files remain addressable through IPFS.</p>
+      </div>
+      <a class="button primary" href="https://feed.13xfile.app">Open feed</a>
+    </section>
+  </main>
+
+  <footer>
+    <img src="./wordmark.svg" alt="13xfile">
+    <span>Decentralized file sharing powered by IPFS.</span>
+  </footer>
+</body>
+</html>

@@ -18,6 +18,9 @@ desktop/frontend/vite.config.d.ts
 # Local 13xfile state
 .13xfile/
 .13xfile-node/
+api/data/
+api/api
+api/api.exe
 
 # Editors / OS
 .vscode/

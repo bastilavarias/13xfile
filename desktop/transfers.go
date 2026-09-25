@@ -19,10 +19,11 @@ import (
 )
 
 type transferJob struct {
-	ID         string `json:"id"`
-	Path       string `json:"path"`
-	Visibility string `json:"visibility"`
-	Staged     bool   `json:"staged"`
+	ID          string `json:"id"`
+	Path        string `json:"path"`
+	Visibility  string `json:"visibility"`
+	Staged      bool   `json:"staged"`
+	ShareToFeed bool   `json:"shareToFeed,omitempty"`
 }
 
 type transferJournalEntry struct {
@@ -194,10 +195,13 @@ func (m *TransferManager) Close() {
 	m.mu.Unlock()
 }
 
-func (m *TransferManager) QueuePaths(paths []string, visibility string, staged bool) ([]Transfer, error) {
+func (m *TransferManager) QueuePaths(paths []string, visibility string, staged bool, shareToFeed bool) ([]Transfer, error) {
 	visibility = strings.ToLower(strings.TrimSpace(visibility))
 	if visibility != "public" && visibility != "private" {
 		return nil, errors.New("visibility must be public or private")
+	}
+	if visibility != "public" {
+		shareToFeed = false
 	}
 	var added []Transfer
 	for _, path := range paths {
@@ -219,19 +223,20 @@ func (m *TransferManager) QueuePaths(paths []string, visibility string, staged b
 		}
 		now := time.Now().UTC()
 		item := &Transfer{
-			ID:         id,
-			Name:       filepath.Base(path),
-			SourcePath: path,
-			Size:       info.Size(),
-			Visibility: visibility,
-			Status:     "queued",
-			Stage:      "Queued",
-			Progress:   0,
-			CreatedAt:  now,
-			UpdatedAt:  now,
-			Staged:     staged,
+			ID:          id,
+			Name:        filepath.Base(path),
+			SourcePath:  path,
+			Size:        info.Size(),
+			Visibility:  visibility,
+			Status:      "queued",
+			Stage:       "Queued",
+			Progress:    0,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+			Staged:      staged,
+			ShareToFeed: shareToFeed,
 		}
-		job := transferJob{ID: id, Path: path, Visibility: visibility, Staged: staged}
+		job := transferJob{ID: id, Path: path, Visibility: visibility, Staged: staged, ShareToFeed: shareToFeed}
 
 		m.mu.Lock()
 		m.items[id] = item
@@ -538,7 +543,26 @@ func (m *TransferManager) process(job transferJob) {
 		return
 	}
 
-	m.update(job.ID, "complete", "Stored & announced", 100, "")
+	if job.ShareToFeed && job.Visibility == "public" {
+		m.update(job.ID, "running", "Publishing to feed", 94, "")
+		_, result, feedErr := m.engine.publishFeedEntry(ctx, VaultFile{
+			ID:         fileID,
+			Name:       info.Name(),
+			CID:        cid,
+			Size:       info.Size(),
+			MIME:       mimeType,
+			Visibility: "public",
+		})
+		if feedErr != nil {
+			m.update(job.ID, "complete", "Stored · feed publish failed", 100, feedErr.Error())
+		} else if result.ManifestPublished {
+			m.update(job.ID, "complete", "Stored & shared to feed", 100, "")
+		} else {
+			m.update(job.ID, "complete", "Stored · feed indexed", 100, result.Warning)
+		}
+	} else {
+		m.update(job.ID, "complete", "Stored & announced", 100, "")
+	}
 
 	if job.Staged {
 		_ = os.Remove(job.Path)
