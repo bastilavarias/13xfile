@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const defaultFeedAPIBase = "https://api.13xfile.app"
+const defaultFeedAPIBase = "http://127.0.0.1:8090"
 
 type feedFileRecord struct {
 	ID         string `json:"id,omitempty"`

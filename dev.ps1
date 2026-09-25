@@ -1,7 +1,8 @@
 param(
     [switch]$NoPull,
     [switch]$BuildOnly,
-    [switch]$CleanInstall
+    [switch]$CleanInstall,
+    [string]$FeedApiUrl = "http://127.0.0.1:8090"
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,9 +37,7 @@ Assert-Command git
 Assert-Command npm
 Assert-Command go
 
-if (-not $env:FEED_API_URL) {
-    $env:FEED_API_URL = "http://127.0.0.1:8090"
-}
+$env:FEED_API_URL = $FeedApiUrl.TrimEnd("/")
 Write-Host "Development feed API: $env:FEED_API_URL" -ForegroundColor DarkCyan
 
 Push-Location $Root
