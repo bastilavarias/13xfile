@@ -4,12 +4,12 @@ on:
   push:
     branches:
       - prototype
+    tags:
+      - "v*"
     paths:
       - "desktop/**"
       - "node/**"
       - ".github/workflows/windows-release.yml"
-  tags:
-    - "v*"
   workflow_dispatch:
 
 permissions:
