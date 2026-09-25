@@ -87,6 +87,25 @@ Useful options:
 
 The updater automatically discards generated `desktop/frontend/dist` changes from prior local builds, but still refuses to pull when real source files have uncommitted changes or the current branch is not `main`.
 
+### Run all web surfaces locally
+
+From the repository root on Windows:
+
+```powershell
+.\\pages.cmd
+```
+
+This single command builds and runs the local product site, feed, share page server, and feed API:
+
+```text
+Main   http://127.0.0.1:8080/
+Feed   http://127.0.0.1:8081/
+Share  http://127.0.0.1:8082/
+API    http://127.0.0.1:8090/health
+```
+
+The command opens Main and Feed automatically. Share is still running, but is not auto-opened because a valid share descriptor is normally supplied in the URL hash. Press `Ctrl+C` once to stop the whole local web stack. Use `.\\pages.cmd -NoOpen` if you do not want browser tabs opened automatically.
+
 ## Headless node
 
 `13xfile-node` is the always-on/server peer. It self-manages a pinned Kubo runtime, keeps an isolated IPFS repository, follows vault metadata, pins learned CIDs, and publishes signed replica receipts after successful storage.

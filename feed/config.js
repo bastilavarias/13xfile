@@ -4,7 +4,7 @@ window.ThirteenXFeedConfig = {
     : "https://api.13xfile.app",
   ipnsName: "",
   shareBase: location.hostname === "localhost" || location.hostname === "127.0.0.1"
-    ? "../share/index.html"
+    ? "http://127.0.0.1:8082/"
     : "https://share.13xfile.app/",
   gateways: [
     "https://dweb.link",
