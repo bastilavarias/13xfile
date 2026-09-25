@@ -1,0 +1,198 @@
+name: Windows desktop release
+
+on:
+  push:
+    branches:
+      - prototype
+    paths:
+      - "desktop/**"
+      - "node/**"
+      - ".github/workflows/windows-release.yml"
+  tags:
+    - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: desktop/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/frontend/package-lock.json
+
+      - name: Resolve version
+        run: |
+          $version = "0.3.0"
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $candidate = "${{ github.ref_name }}".TrimStart("v")
+            if ($candidate -notmatch '^\d+\.\d+\.\d+$') {
+              throw "Release tag must look like v0.3.0"
+            }
+            $version = $candidate
+          }
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install frontend dependencies
+        working-directory: desktop/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: desktop/frontend
+        run: npm run build
+
+      - name: Run Go tests
+        run: |
+          Push-Location node
+          go test ./...
+          Pop-Location
+          Push-Location desktop
+          go test ./...
+          Pop-Location
+
+      - name: Build Windows application
+        working-directory: desktop
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          go build -trimpath -buildvcs=false -ldflags "-s -w -H windowsgui" -o "dist\13xfile.exe" .
+
+      - name: Install packaging tools
+        run: |
+          choco install nsis -y --no-progress
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.25
+
+      - name: Download WebView2 bootstrapper
+        working-directory: desktop
+        run: |
+          & "$env:USERPROFILE\go\bin\wails3.exe" generate webview2bootstrapper -dir "build\windows"
+          if (-not (Test-Path "build\windows\MicrosoftEdgeWebview2Setup.exe")) {
+            throw "WebView2 bootstrapper was not generated"
+          }
+
+      - name: Prepare signing certificate
+        env:
+          WINDOWS_SIGNING_CERT_BASE64: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 }}
+          WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
+        run: |
+          $signed = -not [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_BASE64)
+          if ("${{ github.ref_type }}" -eq "tag" -and -not $signed) {
+            throw "Tagged releases require WINDOWS_SIGNING_CERT_BASE64 and WINDOWS_SIGNING_CERT_PASSWORD"
+          }
+          "SIGN_WINDOWS=$($signed.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if ($signed) {
+            [IO.File]::WriteAllBytes(
+              "$env:RUNNER_TEMP\13xfile-signing.pfx",
+              [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERT_BASE64)
+            )
+          }
+
+      - name: Sign application
+        if: env.SIGN_WINDOWS == 'true'
+        env:
+          WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
+        working-directory: desktop
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $signtool) { throw "signtool.exe not found" }
+          & $signtool.FullName sign /f "$env:RUNNER_TEMP\13xfile-signing.pfx" /p "$env:WINDOWS_SIGNING_CERT_PASSWORD" /fd SHA256 /tr "http://timestamp.digicert.com" /td SHA256 "dist\13xfile.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Application signing failed" }
+
+      - name: Build NSIS installer
+        working-directory: desktop
+        run: |
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) { $makensis = "C:\Program Files\NSIS\makensis.exe" }
+          if (-not (Test-Path $makensis)) { throw "makensis.exe not found" }
+
+          $app = (Resolve-Path "dist\13xfile.exe").Path
+          $webview = (Resolve-Path "build\windows\MicrosoftEdgeWebview2Setup.exe").Path
+          $out = (Join-Path (Resolve-Path "dist").Path "13xfile-$env:APP_VERSION-setup.exe")
+
+          & $makensis "/DAPP_EXE=$app" "/DAPP_VERSION=$env:APP_VERSION" "/DWEBVIEW2_BOOTSTRAPPER=$webview" "/DOUT_FILE=$out" "build\windows\installer.nsi"
+          if ($LASTEXITCODE -ne 0) { throw "NSIS packaging failed" }
+          if (-not (Test-Path $out)) { throw "Installer was not created" }
+
+      - name: Sign installer
+        if: env.SIGN_WINDOWS == 'true'
+        env:
+          WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
+        working-directory: desktop
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if (-not $signtool) { throw "signtool.exe not found" }
+          $installer = "dist\13xfile-$env:APP_VERSION-setup.exe"
+          & $signtool.FullName sign /f "$env:RUNNER_TEMP\13xfile-signing.pfx" /p "$env:WINDOWS_SIGNING_CERT_PASSWORD" /fd SHA256 /tr "http://timestamp.digicert.com" /td SHA256 $installer
+          if ($LASTEXITCODE -ne 0) { throw "Installer signing failed" }
+
+      - name: Verify signatures when signed
+        if: env.SIGN_WINDOWS == 'true'
+        working-directory: desktop
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+            Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          & $signtool.FullName verify /pa /all "dist\13xfile.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Application signature verification failed" }
+          & $signtool.FullName verify /pa /all "dist\13xfile-$env:APP_VERSION-setup.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Installer signature verification failed" }
+
+      - name: Generate checksums
+        working-directory: desktop
+        run: |
+          $files = @("dist\13xfile.exe", "dist\13xfile-$env:APP_VERSION-setup.exe")
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([IO.Path]::GetFileName($file))"
+          }
+          $lines | Set-Content "dist\SHA256SUMS.txt"
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: 13xfile-windows-${{ env.APP_VERSION }}
+          path: |
+            desktop/dist/13xfile.exe
+            desktop/dist/13xfile-*-setup.exe
+            desktop/dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Publish tagged GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: desktop
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $assets = @("dist\13xfile.exe", "dist\13xfile-$env:APP_VERSION-setup.exe", "dist\SHA256SUMS.txt")
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @assets --clobber
+          } else {
+            gh release create $tag @assets --generate-notes --title "13xfile $env:APP_VERSION"
+          }

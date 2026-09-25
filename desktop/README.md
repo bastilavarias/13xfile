@@ -129,7 +129,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\uninstall-windows.ps1
 
 Add `-DeleteVaultData` only when local vault/node state should also be erased.
 
-A Wails build configuration is included under `build/config.yml` for a later signed native installer pipeline.
+A native Windows NSIS pipeline is included under `.github/workflows/windows-release.yml` and `build/windows/installer.nsi`.
+
+Prototype branch pushes build an unsigned Windows installer artifact automatically. Tagged releases require Authenticode signing secrets before publication:
+
+- `WINDOWS_SIGNING_CERT_BASE64` — base64-encoded PFX code-signing certificate
+- `WINDOWS_SIGNING_CERT_PASSWORD` — PFX password
+
+When those secrets are present, the workflow signs both `13xfile.exe` and the NSIS installer, verifies the signatures, generates SHA-256 checksums, and publishes tagged release assets. The installer registers `x13file://`, bootstraps WebView2, creates a Start Menu shortcut, and deliberately preserves `~/.13xfile-desktop` on uninstall.
 
 ## Acceptance
 
