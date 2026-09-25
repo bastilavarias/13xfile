@@ -85,28 +85,65 @@ The Wails desktop client owns its own node and Kubo runtime. Current features in
 
 See `desktop/README.md`.
 
-### Local development with Docker
+### Local testing / development
 
-The web surfaces and feed infrastructure are Dockerized for local testing. No one-time setup script or production deployment is required.
+13xfile is currently intended to be tested locally. The product site, public feed, share page, feed API, and feed-side Kubo node run in Docker; the desktop client runs natively on the host OS.
 
-Requirements:
+#### Requirements
 
-- Docker Desktop with Docker Compose
-- Go and Node.js only for running/building the native desktop app
+All platforms need:
 
-Start the local web/feed stack from the repository root:
+- Git
+- Docker with Docker Compose (`docker compose`)
+- Go **1.26+** for the desktop app
+- internet access on first desktop launch so 13xfile can bootstrap its managed Kubo runtime
+
+Node.js/npm is required when using the Windows `dev.cmd` helper or when rebuilding the React frontend. If you launch the desktop manually with `go run .`, the committed `desktop/frontend/dist` output is enough for a normal local test.
+
+Platform-specific desktop requirements:
+
+- **Windows 10/11:** WebView2 Runtime (normally already installed)
+- **macOS:** Xcode Command Line Tools (`xcode-select --install`)
+- **Linux:** GCC/pkg-config plus GTK4 and WebKitGTK 6.0 development packages. On Ubuntu 24.04 / Debian 13-style systems:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+```
+
+On Ubuntu 22.04 / Debian 12-style systems that only provide WebKit2GTK 4.1, install the legacy dependencies instead:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+```
+
+Then launch the desktop with `go run -tags gtk3 .` instead of plain `go run .`.
+
+#### 1. Clone the project
+
+```bash
+git clone https://github.com/bastilavarias/13xfile.git
+cd 13xfile
+```
+
+#### 2. Start the local web/feed stack
+
+**Windows:**
 
 ```powershell
 .\\pages.cmd
 ```
 
-That is a convenience wrapper for:
+**macOS / Linux:**
 
-```powershell
+```bash
 docker compose up --build
 ```
 
-It starts:
+`pages.cmd` is only a convenience wrapper around the same Docker Compose command.
+
+The stack exposes:
 
 ```text
 Main      http://127.0.0.1:8080/
@@ -116,57 +153,116 @@ Feed API  http://127.0.0.1:8090/health
 IPFS      internal Docker service
 ```
 
-The local feed API keeps its SQLite index and Kubo repository in Docker named volumes, so data survives container recreation.
+The feed API keeps its SQLite index and feed-side Kubo repository in Docker named volumes, so local feed data survives normal container recreation.
 
-In a second terminal, run the native desktop app:
+#### 3. Run the desktop client
+
+Open a second terminal while the Docker stack is still running.
+
+**Windows (recommended helper):**
 
 ```powershell
 .\\dev.cmd -NoPull
 ```
 
-Development desktop runs default **Share to feed** submissions against `http://127.0.0.1:8090`. The Windows dev launcher also stops an older installed/dev 13xfile desktop process before starting the current checkout, preventing the single-instance handoff from silently returning you to an outdated executable. Set `FEED_API_URL` explicitly only when you intentionally want a different feed service.
+The helper rebuilds the desktop frontend and launches the current checkout with the local feed API configured automatically.
 
-Stop the attached Docker stack with `Ctrl+C`. To remove stopped containers/networks use:
+To run it manually from PowerShell instead:
 
 ```powershell
+cd desktop
+$env:FEED_API_URL="http://127.0.0.1:8090"
+go run .
+```
+
+From Windows Command Prompt (`cmd.exe`):
+
+```cmd
+cd desktop
+set FEED_API_URL=http://127.0.0.1:8090
+go run .
+```
+
+**macOS:**
+
+```bash
+xcode-select --install   # only needed once
+export FEED_API_URL=http://127.0.0.1:8090
+cd desktop
+go run .
+```
+
+**Linux (GTK4 / WebKitGTK 6.0):**
+
+```bash
+export FEED_API_URL=http://127.0.0.1:8090
+cd desktop
+go run .
+```
+
+For the legacy GTK3 / WebKit2GTK 4.1 setup described above:
+
+```bash
+export FEED_API_URL=http://127.0.0.1:8090
+cd desktop
+go run -tags gtk3 .
+```
+
+The first desktop launch bootstraps its own managed Kubo runtime under `~/.13xfile-desktop`. A separately installed IPFS daemon is not required.
+
+#### 4. Test the feed flow
+
+In the desktop app:
+
+1. keep the upload visibility set to **Public**;
+2. enable **Share to feed**;
+3. upload a file;
+4. open `http://127.0.0.1:8081/` and refresh the feed.
+
+The file bytes stay on IPFS. The local feed API stores the searchable projection, while feed metadata and manifest history are also published through the Dockerized IPFS/IPNS path.
+
+#### Stop or reset the local stack
+
+Stop attached containers with `Ctrl+C`, then clean up containers/networks with:
+
+```bash
 docker compose down
 ```
 
-To also wipe the local feed database and Docker IPFS repository:
+To also erase the local feed database and feed-side IPFS repository:
 
-```powershell
+```bash
 docker compose down -v
 ```
 
-### Pull latest changes
+#### Pull latest changes
 
-From the repository root on Windows:
+**Windows:**
 
 ```powershell
 .\\pull.cmd
 ```
 
-This safely fast-forwards `main` from `origin/main`. It discards only generated `desktop/frontend/dist` output from previous local builds and refuses to pull when real source changes are present.
+**macOS / Linux:**
 
-### Windows development helper
-
-From repository root, run:
-
-```powershell
-.\\dev.cmd
+```bash
+git switch main
+git pull --ff-only origin main
 ```
 
-It safely fast-forwards `main`, installs frontend dependencies when needed, rebuilds the desktop frontend, then starts the Wails desktop app with `go run .`.
+The Windows pull helper safely resets only generated `desktop/frontend/dist` output and refuses to overwrite real source changes.
 
-Useful options:
+#### Rebuild the desktop frontend manually
 
-```powershell
-.\\dev.cmd -BuildOnly     # pull + build, do not launch
-.\\dev.cmd -NoPull       # build/run current checkout without pulling
-.\\dev.cmd -CleanInstall # force npm ci before building
+Only needed when modifying the UI:
+
+```bash
+cd desktop/frontend
+npm ci
+npm run build
 ```
 
-The updater automatically discards generated `desktop/frontend/dist` changes from prior local builds, but still refuses to pull when real source files have uncommitted changes or the current branch is not `main`.
+Then return to `desktop/` and run `go run .` using the platform-specific `FEED_API_URL` command above.
 
 ## Headless node
 
