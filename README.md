@@ -2,11 +2,23 @@
 
 13xfile is a decentralized encrypted storage network built around content-addressed IPFS blocks, signed device metadata operations, and independent storage peers.
 
-## Desktop preview
+## Interface preview
 
-![13xfile desktop preview](docs/images/desktop-preview.svg)
+### Desktop
 
 The desktop client supports public and encrypted uploads, optional **Share to feed** publishing, IPFS replication status, transfer tracking, browser sharing, and local-first vault management.
+
+| Light theme | Dark theme |
+| --- | --- |
+| ![13xfile desktop light theme](docs/images/light-theme-interface.PNG) | ![13xfile desktop dark theme](docs/images/dark-theme-interface.PNG) |
+
+### Feed and public sharing
+
+The public feed provides searchable discovery for files explicitly published from the desktop app, while the share page gives public files a browser-friendly download experience.
+
+| Public feed | Share page |
+| --- | --- |
+| ![13xfile public feed](docs/images/feed-page.PNG) | ![13xfile public share page](docs/images/share-page.PNG) |
 
 ## MVP layout
 
