@@ -21,8 +21,6 @@ desktop/frontend/vite.config.d.ts
 api/data/
 api/api
 api/api.exe
-tools/devsites/devsites
-tools/devsites/devsites.exe
 
 # Editors / OS
 .vscode/

@@ -3,7 +3,7 @@ name: Windows desktop release
 on:
   push:
     branches:
-      - prototype
+      - main
     tags:
       - "v*"
     paths:

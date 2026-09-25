@@ -144,7 +144,7 @@ Add `-DeleteVaultData` only when local vault/node state should also be erased.
 
 A native Windows NSIS pipeline is included under `.github/workflows/windows-release.yml` and `build/windows/installer.nsi`.
 
-Prototype branch pushes build an unsigned Windows installer artifact automatically. Tagged releases require Authenticode signing secrets before publication:
+Main branch pushes build an unsigned Windows installer artifact automatically. Tagged releases require Authenticode signing secrets before publication:
 
 - `WINDOWS_SIGNING_CERT_BASE64` — base64-encoded PFX code-signing certificate
 - `WINDOWS_SIGNING_CERT_PASSWORD` — PFX password
