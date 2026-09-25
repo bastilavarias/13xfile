@@ -177,7 +177,7 @@ function App() {
   const [fileSort, setFileSort] = useState<"latest" | "oldest" | "name" | "size">("latest")
   const [fileHealth, setFileHealth] = useState<"all" | "safe" | "replicating">("all")
   const [vaultPage, setVaultPage] = useState(0)
-  const [visibility, setVisibility] = useState<"private" | "public">("private")
+  const [visibility, setVisibility] = useState<"private" | "public">("public")
   const [searchQuery, setSearchQuery] = useState("")
   const [joinCode, setJoinCode] = useState("")
   const [vaultBusy, setVaultBusy] = useState(false)
@@ -636,16 +636,16 @@ function App() {
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                   <div className="visibility-switch">
                     <button
-                      className={visibility === "private" ? "visibility-active" : ""}
-                      onClick={() => setVisibility("private")}
-                    >
-                      <Lock className="h-3.5 w-3.5" /> Encrypted
-                    </button>
-                    <button
                       className={visibility === "public" ? "visibility-active" : ""}
                       onClick={() => setVisibility("public")}
                     >
                       <Globe2 className="h-3.5 w-3.5" /> Public
+                    </button>
+                    <button
+                      className={visibility === "private" ? "visibility-active" : ""}
+                      onClick={() => setVisibility("private")}
+                    >
+                      <Lock className="h-3.5 w-3.5" /> Encrypted
                     </button>
                   </div>
                   <Button className="brand-button" onClick={() => inputRef.current?.click()} disabled={staging}>
@@ -655,7 +655,7 @@ function App() {
               </div>
 
               <div className="upload-zone-features">
-                <FeatureLine icon={Lock} title="Encrypted by default" copy="Your files, your control" />
+                <FeatureLine icon={Lock} title="Encrypted when needed" copy="Protect sensitive files locally" />
                 <FeatureLine icon={Globe2} title="Distributed with IPFS" copy="More resilient and open" />
                 <FeatureLine icon={Link2} title="Share with anyone" copy="Generate a link in seconds" />
               </div>
