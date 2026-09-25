@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 $FrontendDir = Join-Path $Root "desktop\frontend"
 $DesktopDir = Join-Path $Root "desktop"
+$LocalConfigPath = Join-Path $Root ".13xfile.local.json"
 
 function Assert-Command {
     param([string]$Name)
@@ -35,6 +36,19 @@ function Invoke-Step {
 Assert-Command git
 Assert-Command npm
 Assert-Command go
+
+if (Test-Path $LocalConfigPath) {
+    try {
+        $LocalConfig = Get-Content -Raw -Path $LocalConfigPath | ConvertFrom-Json
+        if ($LocalConfig.feedApiUrl) {
+            $env:FEED_API_URL = [string]$LocalConfig.feedApiUrl
+            Write-Host "Local development feed API: $env:FEED_API_URL" -ForegroundColor DarkCyan
+        }
+    }
+    catch {
+        throw "Could not read .13xfile.local.json. Run .\\setup-local.cmd again."
+    }
+}
 
 Push-Location $Root
 try {

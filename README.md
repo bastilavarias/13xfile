@@ -2,6 +2,12 @@
 
 13xfile is a decentralized encrypted storage network built around content-addressed IPFS blocks, signed device metadata operations, and independent storage peers.
 
+## Desktop preview
+
+![13xfile desktop preview](docs/images/desktop-preview.png)
+
+The desktop client supports public and encrypted uploads, optional **Share to feed** publishing, IPFS replication status, transfer tracking, browser sharing, and local-first vault management.
+
 ## MVP layout
 
 ```text
@@ -66,6 +72,32 @@ The Wails desktop client owns its own node and Kubo runtime. Current features in
 - optional “Share to feed” metadata publishing through the separate feed index API
 
 See `desktop/README.md`.
+
+### One-time local development setup
+
+This project is still in local testing mode. For a fresh Windows clone, run this once from the repository root:
+
+```powershell
+.\\setup-local.cmd
+```
+
+The setup command installs/downloads the local development dependencies, verifies the feed API and page server, builds the desktop frontend, and creates a repo-local development configuration that points desktop **Share to feed** publishing at:
+
+```text
+http://127.0.0.1:8090
+```
+
+That configuration is local-only and ignored by Git. After setup, the normal testing workflow is:
+
+```powershell
+# Terminal 1: product site + feed + share + local feed API
+.\\pages.cmd
+
+# Terminal 2: desktop app, automatically wired to the local feed API
+.\\dev.cmd -NoPull
+```
+
+No production deployment is required for this workflow.
 
 ### Windows development helper
 

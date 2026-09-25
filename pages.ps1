@@ -6,9 +6,10 @@ $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 $ApiDir = Join-Path $Root "api"
 $TempDir = Join-Path $env:TEMP "13xfile-dev"
+$LocalStateDir = Join-Path $Root ".13xfile-local"
 $SitesExe = Join-Path $TempDir "13xfile-sites.exe"
 $ApiExe = Join-Path $TempDir "13xfile-feed-api.exe"
-$ApiDb = Join-Path $TempDir "feed.db"
+$ApiDb = Join-Path $LocalStateDir "feed.db"
 
 function Assert-Command {
     param([string]$Name)
@@ -49,6 +50,7 @@ function Stop-Tree {
 
 Assert-Command go
 New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
+New-Item -ItemType Directory -Force -Path $LocalStateDir | Out-Null
 
 Build-GoTool -Label "static page server" -WorkingDirectory (Join-Path $Root "tools\devsites") -Output $SitesExe -Target "."
 Build-GoTool -Label "feed API" -WorkingDirectory $ApiDir -Output $ApiExe -Target "."

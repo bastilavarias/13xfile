@@ -18,6 +18,8 @@ desktop/frontend/vite.config.d.ts
 # Local 13xfile state
 .13xfile/
 .13xfile-node/
+.13xfile-local/
+.13xfile.local.json
 api/data/
 api/api
 api/api.exe
