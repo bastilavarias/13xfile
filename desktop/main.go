@@ -55,6 +55,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "13xfile",
 		Description: "Decentralized encrypted file storage",
+		Icon:        brandTrayIcon(),
 		Assets: application.AssetOptions{
 			Handler:        application.BundledAssetFileServer(sub),
 			DisableLogging: true,
@@ -95,11 +96,13 @@ func main() {
 	}
 	window = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:            "13xfile",
-		Width:            1040,
-		Height:           760,
+		Width:            1280,
+		Height:           820,
+		MinWidth:         920,
+		MinHeight:        680,
 		URL:              windowURL,
 		EnableFileDrop:   true,
-		BackgroundColour: application.NewRGB(248, 248, 247),
+		BackgroundColour: application.NewRGB(6, 17, 31),
 	})
 
 	engine, err := newDesktopEngine(ctx, home, nodeApp)

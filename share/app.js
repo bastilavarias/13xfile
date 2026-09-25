@@ -10,9 +10,12 @@ if (!gatewayHostname || !gatewayLabel || !gatewayURL || !loadGatewayOrigins) {
 }
 
 const card = document.querySelector("#share-card")
+const gatewayCard = document.querySelector("#gateway-card")
+const featureStrip = document.querySelector("#feature-strip")
 const errorCard = document.querySelector("#error-card")
 const downloadButton = document.querySelector("#download-button")
 const downloadLabel = document.querySelector("#download-label")
+const downloadSize = document.querySelector("#download-size")
 const progressWrap = document.querySelector("#progress-wrap")
 const progressBar = document.querySelector("#progress-bar")
 const progressLabel = document.querySelector("#progress-label")
@@ -21,6 +24,14 @@ const originList = document.querySelector("#origin-list")
 const originSummary = document.querySelector("#origin-summary")
 const refreshOriginsButton = document.querySelector("#refresh-origins")
 const availabilityText = document.querySelector("#availability-text")
+const appLinkInput = document.querySelector("#app-link")
+const cidInput = document.querySelector("#file-cid")
+const copyAppLinkButton = document.querySelector("#copy-app-link")
+const copyCIDButton = document.querySelector("#copy-cid")
+const themeToggle = document.querySelector("#theme-toggle")
+const themeIcon = document.querySelector("#theme-icon")
+const themeLabel = document.querySelector("#theme-label")
+const shareQR = document.querySelector("#share-qr")
 
 let descriptor = null
 let gatewayStates = []
@@ -29,8 +40,30 @@ let manualOriginSelection = false
 let probeGeneration = 0
 let isDownloading = false
 
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme
+  localStorage.setItem("13xfile-share-theme", theme)
+  themeIcon.textContent = theme === "dark" ? "☾" : "☀"
+  themeLabel.textContent = theme === "dark" ? "Dark" : "Light"
+}
+
+const savedTheme = localStorage.getItem("13xfile-share-theme")
+setTheme(
+  savedTheme === "light" || savedTheme === "dark"
+    ? savedTheme
+    : window.matchMedia?.("(prefers-color-scheme: light)").matches
+      ? "light"
+      : "dark",
+)
+
+themeToggle.addEventListener("click", () => {
+  setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark")
+})
+
 function showError(title, message) {
   card.hidden = true
+  gatewayCard.hidden = true
+  featureStrip.hidden = true
   errorCard.hidden = false
   document.querySelector("#error-title").textContent = title
   document.querySelector("#error-message").textContent = message
@@ -53,7 +86,7 @@ function decodeDescriptor() {
     throw new Error("The file CID in this link is invalid.")
   }
   if ((parsed.visibility || "public") !== "public") {
-    throw new Error("Private browser sharing is not enabled in this prototype yet.")
+    throw new Error("Encrypted browser sharing is not enabled. Open this link in the 13xfile desktop app.")
   }
 
   return {
@@ -62,6 +95,7 @@ function decodeDescriptor() {
     size: Number(parsed.size) || 0,
     mime: parsed.mime || "application/octet-stream",
     visibility: "public",
+    payload,
   }
 }
 
@@ -77,25 +111,49 @@ function formatBytes(bytes) {
   return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`
 }
 
+function friendlyType(mime, name) {
+  const extension = name.includes(".") ? name.split(".").pop().toUpperCase() : ""
+  if (extension && extension.length <= 8) return extension
+  if (mime.startsWith("image/")) return "IMG"
+  if (mime.startsWith("video/")) return "VIDEO"
+  if (mime.startsWith("audio/")) return "AUDIO"
+  if (mime === "application/pdf") return "PDF"
+  return "FILE"
+}
+
+function renderQR() {
+  if (!shareQR) return
+  if (!window.QRCode?.toCanvas) {
+    shareQR.closest(".qr-panel").style.display = "none"
+    return
+  }
+  window.QRCode.toCanvas(
+    shareQR,
+    location.href,
+    {
+      width: 220,
+      margin: 1,
+      errorCorrectionLevel: "M",
+      color: { dark: "#07111f", light: "#ffffff" },
+    },
+    () => {},
+  )
+}
+
 function render(desc) {
   document.title = `${desc.name} · 13xfile`
   document.querySelector("#file-name").textContent = desc.name
   document.querySelector("#file-size").textContent = formatBytes(desc.size)
-  document.querySelector("#file-cid").textContent = desc.cid
+  downloadSize.textContent = formatBytes(desc.size)
+  cidInput.value = desc.cid
   document.querySelector("#file-type").textContent = desc.mime
   document.querySelector("#file-type-short").textContent = friendlyType(desc.mime, desc.name)
+  appLinkInput.value = `x13file://share/${desc.payload}`
   errorCard.hidden = true
   card.hidden = false
-}
-
-function friendlyType(mime, name) {
-  const extension = name.includes(".") ? name.split(".").pop().toUpperCase() : ""
-  if (extension && extension.length <= 8) return extension
-  if (mime.startsWith("image/")) return "Image"
-  if (mime.startsWith("video/")) return "Video"
-  if (mime.startsWith("audio/")) return "Audio"
-  if (mime === "application/pdf") return "PDF"
-  return "File"
+  gatewayCard.hidden = false
+  featureStrip.hidden = false
+  renderQR()
 }
 
 function updateProgress(received, total) {
@@ -112,13 +170,25 @@ function updateProgress(received, total) {
   }
 }
 
+async function copyText(value, button) {
+  await navigator.clipboard.writeText(value)
+  const old = button.textContent
+  button.textContent = "Copied"
+  window.setTimeout(() => {
+    button.textContent = old
+  }, 1200)
+}
+
+copyAppLinkButton.addEventListener("click", () => copyText(appLinkInput.value, copyAppLinkButton))
+copyCIDButton.addEventListener("click", () => copyText(cidInput.value, copyCIDButton))
+
 function renderOrigins() {
   originList.replaceChildren()
 
   if (gatewayStates.length === 0) {
     const empty = document.createElement("div")
     empty.className = "origin-empty"
-    empty.textContent = "Loading public IPFS origins…"
+    empty.textContent = "Loading public IPFS gateways…"
     originList.appendChild(empty)
     return
   }
@@ -134,13 +204,16 @@ function renderOrigins() {
   const fastest = sorted.find((item) => item.status === "ready")?.origin || ""
 
   for (const item of sorted) {
-    const row = document.createElement("button")
-    row.type = "button"
+    const row = document.createElement("div")
     row.className = "origin-row"
     row.dataset.status = item.status
     row.dataset.selected = String(item.origin === selectedOrigin)
-    row.disabled = item.status !== "ready" || isDownloading
-    row.addEventListener("click", () => {
+
+    const select = document.createElement("button")
+    select.type = "button"
+    select.className = "origin-select"
+    select.disabled = item.status !== "ready" || isDownloading
+    select.addEventListener("click", () => {
       selectedOrigin = item.origin
       manualOriginSelection = true
       renderOrigins()
@@ -171,7 +244,7 @@ function renderOrigins() {
 
     const hostname = document.createElement("span")
     hostname.className = "origin-host"
-    hostname.textContent = gatewayHostname(item.origin)
+    hostname.textContent = descriptor ? gatewayURL(item.origin, descriptor.cid) : item.origin
 
     identity.appendChild(nameLine)
     identity.appendChild(hostname)
@@ -193,9 +266,22 @@ function renderOrigins() {
     }
     health.appendChild(status)
 
-    row.appendChild(radio)
-    row.appendChild(identity)
-    row.appendChild(health)
+    select.appendChild(radio)
+    select.appendChild(identity)
+    select.appendChild(health)
+
+    const copyButton = document.createElement("button")
+    copyButton.type = "button"
+    copyButton.className = "origin-copy"
+    copyButton.textContent = "Copy link"
+    copyButton.disabled = item.status !== "ready"
+    copyButton.addEventListener("click", () => {
+      if (!descriptor) return
+      copyText(gatewayURL(item.origin, descriptor.cid), copyButton)
+    })
+
+    row.appendChild(select)
+    row.appendChild(copyButton)
     originList.appendChild(row)
   }
 }
@@ -205,20 +291,20 @@ function updateOriginSummary() {
   const checking = gatewayStates.filter((item) => item.status === "checking")
 
   if (checking.length > 0) {
-    originSummary.textContent = `Checking ${gatewayStates.length} public origins against this CID…`
+    originSummary.textContent = `Checking ${gatewayStates.length} public gateways against this CID…`
     return
   }
 
   if (ready.length === 0) {
-    originSummary.textContent = "No browser-compatible origin returned this CID. Retry in a moment."
-    availabilityText.textContent = "No public origin currently found the file"
+    originSummary.textContent = "No browser-compatible gateway returned this CID. Retry in a moment."
+    availabilityText.textContent = "No public gateway currently found the file"
     return
   }
 
   originSummary.textContent =
     ready.length === 1
-      ? "1 public origin can serve this file."
-      : `${ready.length} public origins can serve this file. Choose any mirror.`
+      ? "1 public gateway can serve this file."
+      : `${ready.length} public gateways can serve this file. Fastest route is highlighted.`
   availabilityText.textContent = "Available from the IPFS network"
 }
 
@@ -237,7 +323,7 @@ function updateDownloadReadiness() {
     downloadLabel.textContent = `Download via ${gatewayLabel(selected.origin)}`
   } else {
     downloadButton.disabled = true
-    downloadLabel.textContent = "Finding download origins…"
+    downloadLabel.textContent = "Finding download route…"
   }
 }
 
@@ -343,7 +429,7 @@ async function refreshOrigins() {
 
 async function fetchFromGateway(origin, desc) {
   const controller = new AbortController()
-  const connectTimeout = window.setTimeout(() => controller.abort(), 15_000)
+  const connectTimeout = window.setTimeout(() => controller.abort(), 15000)
 
   let response
   try {
@@ -387,7 +473,7 @@ function saveBlob(blob, name) {
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
-  setTimeout(() => URL.revokeObjectURL(objectURL), 10_000)
+  setTimeout(() => URL.revokeObjectURL(objectURL), 10000)
 }
 
 async function download() {
@@ -453,8 +539,8 @@ async function download() {
   refreshOriginsButton.disabled = false
   progressBar.style.width = "0%"
   progressPercent.textContent = ""
-  progressLabel.textContent = "All currently available origins failed during download."
-  availabilityText.textContent = "Public mirrors are temporarily unavailable"
+  progressLabel.textContent = "All currently available gateways failed during download."
+  availabilityText.textContent = "Public gateways are temporarily unavailable"
   renderOrigins()
   updateDownloadReadiness()
   console.warn("13xfile public download failed", lastError)

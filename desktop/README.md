@@ -44,11 +44,11 @@ Local state is kept under:
 
 ### Encryption
 
-Private is the default upload mode.
+Encrypted is the default upload mode in the UI. The backend keeps the existing `private` visibility value for compatibility.
 
-New private files get a random 256-bit file key. File bytes are encrypted locally with chunked AES-256-GCM before entering IPFS. The random file key is wrapped with a vault-derived AES-GCM wrapping key and stored only as authenticated wrapped metadata.
+New encrypted files get a random 256-bit file key. File bytes are encrypted locally with chunked AES-256-GCM before entering IPFS. The random file key is wrapped with a vault-derived AES-GCM wrapping key and stored only as authenticated wrapped metadata.
 
-Legacy private files from the first prototype remain readable.
+Legacy encrypted files from the first prototype remain readable.
 
 ### Replication
 
@@ -75,7 +75,7 @@ Public files expose:
 
 The static receiver page probes the IPFS Public Gateway Checker list against the actual CID from the recipient browser, recommends a working origin, and exposes alternatives like mirror links.
 
-Private web sharing is deliberately not part of this MVP. Private app links carry only the individual file decryption capability.
+Encrypted web sharing is deliberately not part of this MVP. Encrypted app links carry only the individual file decryption capability.
 
 `13xfile://share/...` links from the prototype remain accepted for backward compatibility, but `x13file://` is the canonical OS-registerable scheme because URI schemes cannot start with a digit.
 

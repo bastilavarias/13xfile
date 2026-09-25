@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="light" />
+  <meta name="color-scheme" content="dark light" />
   <meta name="referrer" content="no-referrer" />
   <title>13xfile Share</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,95 +12,180 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <header>
-    <a class="brand" href="./" aria-label="13xfile">13xfile</a>
-    <span class="network">Shared file</span>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <div class="brand-cluster">
+        <a href="./" class="brand" aria-label="13xfile">
+          <img src="./wordmark.svg" alt="13xfile" />
+        </a>
+        <div class="brand-copy">
+          <strong>Decentralized sharing powered by IPFS.</strong>
+          <span>More resilient. More open. Share with anyone.</span>
+        </div>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle theme">
+        <span id="theme-icon">☾</span>
+        <span id="theme-label">Dark</span>
+      </button>
+    </div>
   </header>
 
-  <main>
+  <main class="page-shell">
     <section class="share-card" id="share-card" hidden>
-      <div class="file-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" stroke="currentColor" stroke-width="1.7"/>
-          <path d="M14 2v6h6" stroke="currentColor" stroke-width="1.7"/>
-        </svg>
+      <div class="file-grid">
+        <div class="file-main">
+          <div class="file-heading">
+            <div class="file-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" stroke="currentColor" stroke-width="1.7"/>
+                <path d="M14 2v6h6" stroke="currentColor" stroke-width="1.7"/>
+              </svg>
+              <span id="file-type-short">FILE</span>
+            </div>
+            <div class="file-heading-copy">
+              <div class="file-badge">Public</div>
+              <h1 id="file-name"></h1>
+              <div class="metadata">
+                <span id="file-size"></span>
+                <span class="metadata-chip">IPFS</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="file-description">
+            Shared via 13xfile. This file is stored and distributed across the IPFS network for resilient and open access.
+          </p>
+
+          <button class="download-button" id="download-button" type="button" disabled>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span id="download-label">Finding download route…</span>
+            <span class="download-size" id="download-size"></span>
+          </button>
+
+          <div class="availability">
+            <span class="status-dot"></span>
+            <span id="availability-text">Finding the best IPFS route…</span>
+          </div>
+
+          <div class="progress-wrap" id="progress-wrap" hidden>
+            <div class="progress-track">
+              <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div class="progress-copy">
+              <span id="progress-label">Connecting…</span>
+              <span id="progress-percent"></span>
+            </div>
+          </div>
+        </div>
+
+        <aside class="qr-panel">
+          <div class="qr-frame">
+            <canvas id="share-qr" width="220" height="220" aria-label="QR code for this share link"></canvas>
+          </div>
+          <strong>Scan to open</strong>
+          <span>Open this link on any device.</span>
+        </aside>
+      </div>
+    </section>
+
+    <section class="gateway-card" id="gateway-card" hidden>
+      <div class="gateway-heading">
+        <div>
+          <div class="section-title">
+            <span class="section-icon" aria-hidden="true">↗</span>
+            <div>
+              <h2>Gateway & links</h2>
+              <p>Choose an available IPFS route. Every gateway points to the same content ID.</p>
+            </div>
+          </div>
+        </div>
+        <button class="refresh-origins" id="refresh-origins" type="button">Refresh routes</button>
       </div>
 
-      <div class="file-badge">Public file</div>
-      <h1 id="file-name"></h1>
-      <p class="metadata">
-        <span id="file-size"></span>
-        <span class="dot">•</span>
-        <span id="file-type-short">File</span>
-      </p>
-
-      <div class="availability">
-        <span class="status-dot"></span>
-        <span id="availability-text">Finding the best download route…</span>
+      <div class="gateway-summary">
+        <span class="summary-dot"></span>
+        <span id="origin-summary">Checking public IPFS gateways…</span>
       </div>
 
-      <button class="download-button" id="download-button" type="button" disabled>
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span id="download-label">Download file</span>
-      </button>
-
-      <div class="progress-wrap" id="progress-wrap" hidden>
-        <div class="progress-track">
-          <div class="progress-bar" id="progress-bar"></div>
-        </div>
-        <div class="progress-copy">
-          <span id="progress-label">Connecting…</span>
-          <span id="progress-percent"></span>
-        </div>
+      <div class="origin-list" id="origin-list">
+        <div class="origin-empty">Loading public IPFS gateways…</div>
       </div>
 
-      <details class="download-options">
-        <summary>
-          <span>
-            <strong>Download options</strong>
-            <small id="origin-summary">Checking public IPFS mirrors…</small>
-          </span>
-          <span class="chevron" aria-hidden="true">⌄</span>
-        </summary>
-
-        <div class="origins-head">
-          <div class="origins-subtitle">Choose another public IPFS mirror</div>
-          <button class="refresh-origins" id="refresh-origins" type="button">Refresh</button>
+      <div class="link-rows">
+        <div class="link-row">
+          <div class="link-row-label">
+            <span class="link-icon">13x</span>
+            <div>
+              <strong>13xfile app link</strong>
+              <span>Open directly in the 13xfile desktop app.</span>
+            </div>
+          </div>
+          <input id="app-link" readonly />
+          <button class="copy-button" id="copy-app-link" type="button">Copy</button>
         </div>
 
-        <div class="origin-list" id="origin-list">
-          <div class="origin-empty">Loading public IPFS origins…</div>
+        <div class="link-row">
+          <div class="link-row-label">
+            <span class="link-icon">CID</span>
+            <div>
+              <strong>Content ID</strong>
+              <span>Permanent IPFS identifier for this file.</span>
+            </div>
+          </div>
+          <input id="file-cid" readonly />
+          <button class="copy-button" id="copy-cid" type="button">Copy</button>
         </div>
-      </details>
-
-      <p class="footnote">
-        13xfile does not host this file. Your browser retrieves it from an available IPFS origin using its content ID.
-      </p>
+      </div>
 
       <details class="technical">
-        <summary>File details</summary>
+        <summary>Technical details</summary>
         <dl>
-          <div>
-            <dt>CID</dt>
-            <dd id="file-cid"></dd>
-          </div>
           <div>
             <dt>Type</dt>
             <dd id="file-type"></dd>
+          </div>
+          <div>
+            <dt>Visibility</dt>
+            <dd>Public</dd>
           </div>
         </dl>
       </details>
     </section>
 
+    <section class="feature-strip" id="feature-strip" hidden>
+      <article>
+        <img src="./emblem.svg" alt="" />
+        <div>
+          <strong>Powered by IPFS</strong>
+          <span>Decentralized distribution without a single file server.</span>
+        </div>
+      </article>
+      <article>
+        <span class="feature-glyph">✓</span>
+        <div>
+          <strong>Share with anyone</strong>
+          <span>Public links open in a browser. No 13xfile app required.</span>
+        </div>
+      </article>
+      <article>
+        <span class="feature-glyph">⚡</span>
+        <div>
+          <strong>More resilient and open</strong>
+          <span>Multiple gateways can serve the same content ID.</span>
+        </div>
+      </article>
+    </section>
+
     <section class="error-card" id="error-card" hidden>
-      <div class="file-icon error-icon" aria-hidden="true">!</div>
+      <div class="error-icon" aria-hidden="true">!</div>
       <h1 id="error-title">Invalid share link</h1>
       <p id="error-message">This 13xfile link is incomplete or unsupported.</p>
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js" crossorigin="anonymous"></script>
   <script src="./gateways.js"></script>
   <script src="./app.js"></script>
 </body>
