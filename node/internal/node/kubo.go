@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -62,6 +61,11 @@ func (k kubo) run(ctx context.Context, args ...string) (string, error) {
 }
 
 func (k kubo) daemon(ctx context.Context, enableGC bool) error {
+	if k.daemonAvailable() {
+		<-ctx.Done()
+		return nil
+	}
+
 	args := []string{"daemon"}
 	if enableGC {
 		args = append(args, "--enable-gc")
@@ -82,6 +86,13 @@ func (k kubo) daemon(ctx context.Context, enableGC bool) error {
 	select {
 	case err := <-done:
 		if err != nil {
+			// A previous 13xfile process may still own the same Kubo repo.
+			// If that daemon became available while this process was starting,
+			// adopt it instead of surfacing an endless repo.lock restart loop.
+			if k.daemonAvailable() {
+				<-ctx.Done()
+				return nil
+			}
 			return fmt.Errorf("Kubo daemon exited: %w", err)
 		}
 		return nil
@@ -90,7 +101,13 @@ func (k kubo) daemon(ctx context.Context, enableGC bool) error {
 			return ctx.Err()
 		}
 
-		_ = cmd.Process.Signal(syscall.SIGTERM)
+		// Kubo's RPC shutdown works consistently across Windows/Linux/macOS.
+		// Prefer it over OS signals so Windows dev restarts do not leave an
+		// orphaned daemon holding repo.lock.
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_, _ = k.run(shutdownCtx, "shutdown")
+		cancel()
+
 		select {
 		case err := <-done:
 			if err != nil {
@@ -100,12 +117,24 @@ func (k kubo) daemon(ctx context.Context, enableGC bool) error {
 				}
 			}
 			return nil
-		case <-time.After(10 * time.Second):
+		case <-time.After(5 * time.Second):
 			_ = cmd.Process.Kill()
 			<-done
 			return nil
 		}
 	}
+}
+
+func (k kubo) daemonAvailable() bool {
+	apiPath := filepath.Join(k.repoPath, "api")
+	if info, err := os.Stat(apiPath); err != nil || info.IsDir() {
+		return false
+	}
+
+	checkCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, err := k.run(checkCtx, "id")
+	return err == nil
 }
 
 func repoExists(repoPath string) bool {
