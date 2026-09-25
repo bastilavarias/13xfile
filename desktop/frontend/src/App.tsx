@@ -751,7 +751,7 @@ function App() {
               </div>
 
               <div className="space-y-2">
-                <div className="text-xs font-medium">Storage receipts</div>
+                <div className="text-xs font-medium">Active storage receipts</div>
                 <div className="overflow-hidden rounded-lg border">
                   {(detailFile.replicas || []).length ? (
                     (detailFile.replicas || []).map((receipt) => (

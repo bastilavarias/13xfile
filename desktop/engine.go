@@ -19,9 +19,23 @@ import (
 )
 
 const (
-	desktopAPIAddr = "127.0.0.1:8791"
-	vaultAPIAddr   = "127.0.0.1:8790"
+	defaultDesktopAPIAddr = "127.0.0.1:8791"
+	defaultVaultAPIAddr   = "127.0.0.1:8790"
 )
+
+func desktopAPIAddr() string {
+	if value := strings.TrimSpace(os.Getenv("THIRTEENXFILE_DESKTOP_API_ADDR")); value != "" {
+		return value
+	}
+	return defaultDesktopAPIAddr
+}
+
+func vaultAPIAddr() string {
+	if value := strings.TrimSpace(os.Getenv("THIRTEENXFILE_VAULT_API_ADDR")); value != "" {
+		return value
+	}
+	return defaultVaultAPIAddr
+}
 
 type DesktopEngine struct {
 	ctx  context.Context
@@ -60,7 +74,7 @@ func newDesktopEngine(ctx context.Context, home string, nodeApp *nodeengine.App)
 	}
 	engine.transfers = newTransferManager(ctx, engine, 3)
 	engine.apiServer = &http.Server{
-		Addr:              desktopAPIAddr,
+		Addr:              desktopAPIAddr(),
 		Handler:           engine.routes(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -242,7 +256,7 @@ func (e *DesktopEngine) startVault(code string) error {
 	e.vaultMu.Unlock()
 
 	go func() {
-		if err := e.node.RunWebDemo(e.ctx, vaultAPIAddr, strings.TrimSpace(code)); err != nil && e.ctx.Err() == nil {
+		if err := e.node.RunWebDemo(e.ctx, vaultAPIAddr(), strings.TrimSpace(code)); err != nil && e.ctx.Err() == nil {
 			e.vaultMu.Lock()
 			e.vaultErr = err
 			e.vaultStarted = false
@@ -270,7 +284,7 @@ func (e *DesktopEngine) startVault(code string) error {
 
 func (e *DesktopEngine) vaultStatus() (*VaultStatus, error) {
 	client := &http.Client{Timeout: 4 * time.Second}
-	resp, err := client.Get("http://" + vaultAPIAddr + "/api/status")
+	resp, err := client.Get("http://" + vaultAPIAddr() + "/api/status")
 	if err != nil {
 		return nil, err
 	}

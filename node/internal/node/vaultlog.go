@@ -17,8 +17,11 @@ import (
 )
 
 const (
-	deviceIdentityVersion = 1
-	vaultOpVersion        = 1
+	deviceIdentityVersion     = 1
+	vaultOpVersion            = 1
+	deviceHeartbeatVersion    = 1
+	replicaHeartbeatInterval  = 2 * time.Minute
+	replicaHeartbeatFreshness = 10 * time.Minute
 
 	vaultOpFileAdd    = "file.add"
 	vaultOpFileRemove = "file.remove"
@@ -52,7 +55,17 @@ type ReplicaReceipt struct {
 	DeviceID string    `json:"deviceId"`
 	PeerID   string    `json:"peerId,omitempty"`
 	CID      string    `json:"cid"`
+	StoredAt time.Time `json:"storedAt,omitempty"`
 	At       time.Time `json:"at"`
+}
+
+type DeviceHeartbeat struct {
+	Version   int       `json:"version"`
+	DeviceID  string    `json:"deviceId"`
+	PeerID    string    `json:"peerId,omitempty"`
+	PublicKey string    `json:"publicKey"`
+	At        time.Time `json:"at"`
+	Signature string    `json:"signature"`
 }
 
 func ensureDeviceIdentity(home string) (deviceIdentity, error) {
@@ -142,6 +155,86 @@ func (identity deviceIdentity) signOp(op VaultOp) (VaultOp, error) {
 	privateKey, _ := base64.RawURLEncoding.DecodeString(identity.PrivateKey)
 	op.Signature = base64.RawURLEncoding.EncodeToString(ed25519.Sign(ed25519.PrivateKey(privateKey), payload))
 	return op, nil
+}
+
+func (identity deviceIdentity) signHeartbeat(peerID string, at time.Time) (DeviceHeartbeat, error) {
+	if err := validateDeviceIdentity(identity); err != nil {
+		return DeviceHeartbeat{}, err
+	}
+	if at.IsZero() {
+		at = time.Now().UTC()
+	}
+	heartbeat := DeviceHeartbeat{
+		Version:   deviceHeartbeatVersion,
+		DeviceID:  identity.DeviceID,
+		PeerID:    strings.TrimSpace(peerID),
+		PublicKey: identity.PublicKey,
+		At:        at.UTC(),
+	}
+	payload, err := canonicalDeviceHeartbeat(heartbeat)
+	if err != nil {
+		return DeviceHeartbeat{}, err
+	}
+	privateKey, _ := base64.RawURLEncoding.DecodeString(identity.PrivateKey)
+	heartbeat.Signature = base64.RawURLEncoding.EncodeToString(
+		ed25519.Sign(ed25519.PrivateKey(privateKey), payload),
+	)
+	return heartbeat, nil
+}
+
+func verifyDeviceHeartbeat(heartbeat DeviceHeartbeat) error {
+	if heartbeat.Version != deviceHeartbeatVersion {
+		return fmt.Errorf("unsupported device heartbeat version %d", heartbeat.Version)
+	}
+	if heartbeat.DeviceID == "" || heartbeat.PublicKey == "" || heartbeat.Signature == "" || heartbeat.At.IsZero() {
+		return errors.New("device heartbeat is incomplete")
+	}
+	publicKey, err := base64.RawURLEncoding.DecodeString(heartbeat.PublicKey)
+	if err != nil || len(publicKey) != ed25519.PublicKeySize {
+		return errors.New("device heartbeat has invalid public key")
+	}
+	sum := sha256.Sum256(publicKey)
+	if heartbeat.DeviceID != hex.EncodeToString(sum[:12]) {
+		return errors.New("device heartbeat device ID does not match public key")
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(heartbeat.Signature)
+	if err != nil || len(signature) != ed25519.SignatureSize {
+		return errors.New("device heartbeat has invalid signature")
+	}
+	unsigned := heartbeat
+	unsigned.Signature = ""
+	payload, err := canonicalDeviceHeartbeat(unsigned)
+	if err != nil {
+		return err
+	}
+	if !ed25519.Verify(ed25519.PublicKey(publicKey), payload, signature) {
+		return errors.New("device heartbeat signature verification failed")
+	}
+	return nil
+}
+
+func canonicalDeviceHeartbeat(heartbeat DeviceHeartbeat) ([]byte, error) {
+	heartbeat.Signature = ""
+	return json.Marshal(heartbeat)
+}
+
+func mergeDeviceHeartbeats(existing, incoming map[string]DeviceHeartbeat) map[string]DeviceHeartbeat {
+	result := make(map[string]DeviceHeartbeat, len(existing)+len(incoming))
+	for deviceID, heartbeat := range existing {
+		if verifyDeviceHeartbeat(heartbeat) == nil && heartbeat.DeviceID == deviceID {
+			result[deviceID] = heartbeat
+		}
+	}
+	for deviceID, heartbeat := range incoming {
+		if verifyDeviceHeartbeat(heartbeat) != nil || heartbeat.DeviceID != deviceID {
+			continue
+		}
+		current, ok := result[deviceID]
+		if !ok || heartbeat.At.After(current.At) {
+			result[deviceID] = heartbeat
+		}
+	}
+	return result
 }
 
 func verifyVaultOp(op VaultOp) error {
@@ -277,8 +370,12 @@ func applyVaultOps(base []DemoFile, ops []VaultOp) []DemoFile {
 	return result
 }
 
-func replicaReceiptsFor(ops []VaultOp, fileID, cid string) []ReplicaReceipt {
-	latest := make(map[string]ReplicaReceipt)
+func replicaReceiptsFor(ops []VaultOp, fileID, cid string, heartbeats map[string]DeviceHeartbeat, now time.Time) []ReplicaReceipt {
+	type storedReceipt struct {
+		receipt ReplicaReceipt
+		stored  time.Time
+	}
+	latest := make(map[string]storedReceipt)
 	for _, op := range ops {
 		if op.Type != vaultOpReplicaAck || op.FileID != fileID || op.CID != cid {
 			continue
@@ -286,13 +383,39 @@ func replicaReceiptsFor(ops []VaultOp, fileID, cid string) []ReplicaReceipt {
 		if verifyVaultOp(op) != nil {
 			continue
 		}
-		receipt := ReplicaReceipt{DeviceID: op.DeviceID, PeerID: op.PeerID, CID: op.CID, At: op.CreatedAt}
-		if current, ok := latest[receipt.DeviceID]; !ok || receipt.At.After(current.At) {
-			latest[receipt.DeviceID] = receipt
+		current, ok := latest[op.DeviceID]
+		if ok && !op.CreatedAt.After(current.stored) {
+			continue
+		}
+		latest[op.DeviceID] = storedReceipt{
+			receipt: ReplicaReceipt{
+				DeviceID: op.DeviceID,
+				PeerID:   op.PeerID,
+				CID:      op.CID,
+				StoredAt: op.CreatedAt,
+			},
+			stored: op.CreatedAt,
 		}
 	}
+
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
 	result := make([]ReplicaReceipt, 0, len(latest))
-	for _, receipt := range latest {
+	for deviceID, stored := range latest {
+		heartbeat, ok := heartbeats[deviceID]
+		if !ok || verifyDeviceHeartbeat(heartbeat) != nil {
+			continue
+		}
+		age := now.Sub(heartbeat.At)
+		if age < -5*time.Minute || age > replicaHeartbeatFreshness {
+			continue
+		}
+		receipt := stored.receipt
+		if heartbeat.PeerID != "" {
+			receipt.PeerID = heartbeat.PeerID
+		}
+		receipt.At = heartbeat.At
 		result = append(result, receipt)
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].At.After(result[j].At) })

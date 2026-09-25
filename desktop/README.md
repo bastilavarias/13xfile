@@ -62,7 +62,7 @@ The UI shows:
 3 / 3  Safe
 ```
 
-The target is configurable in Settings. Details shows the individual device/peer receipts behind the count.
+Only receipts from devices with a fresh signed heartbeat count toward that number, so an offline peer eventually stops contributing to `Safe`. The target is configurable in Settings. Details shows the individual active device/peer receipts behind the count.
 
 ### Sharing
 

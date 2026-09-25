@@ -81,7 +81,7 @@ other devices verify signature
 replica count increases
 ```
 
-A desktop marks a file Safe only when the number of distinct verified device receipts meets its configured replication target.
+A desktop marks a file Safe only when the number of distinct verified device receipts from currently live devices meets its configured replication target. Devices publish signed heartbeats every ~2 minutes; receipts stop counting after the heartbeat exceeds the liveness window (currently 10 minutes). The original storage timestamp remains separate from heartbeat freshness.
 
 ## Public sharing
 

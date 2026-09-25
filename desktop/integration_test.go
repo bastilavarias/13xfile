@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -29,6 +31,13 @@ func TestDesktopEndToEnd(t *testing.T) {
 	}
 
 	t.Setenv("THIRTEENXFILE_NODE_HOME", nodeHome)
+	t.Setenv("THIRTEENXFILE_DESKTOP_API_ADDR", freeLoopbackAddr(t))
+	t.Setenv("THIRTEENXFILE_VAULT_API_ADDR", freeLoopbackAddr(t))
+	swarmAddr := freeLoopbackAddr(t)
+	_, swarmPort, err := net.SplitHostPort(swarmAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	nodeApp, err := nodeengine.New()
 	if err != nil {
@@ -39,7 +48,7 @@ func TestDesktopEndToEnd(t *testing.T) {
 	}
 
 	ipfsEnv := append(os.Environ(), "IPFS_PATH="+filepath.Join(nodeHome, "ipfs"))
-	config := exec.Command(kubo, "config", "--json", "Addresses.Swarm", `["/ip4/0.0.0.0/tcp/4201","/ip4/0.0.0.0/udp/4201/quic-v1","/ip6/::/tcp/4201","/ip6/::/udp/4201/quic-v1"]`)
+	config := exec.Command(kubo, "config", "--json", "Addresses.Swarm", fmt.Sprintf(`[%q,%q]`, "/ip4/0.0.0.0/tcp/"+swarmPort, "/ip4/0.0.0.0/udp/"+swarmPort+"/quic-v1"))
 	config.Env = ipfsEnv
 	if output, err := config.CombinedOutput(); err != nil {
 		t.Fatalf("configure swarm: %v: %s", err, output)
@@ -63,9 +72,9 @@ func TestDesktopEndToEnd(t *testing.T) {
 	defer engine.Close()
 	go engine.Run()
 
-	waitHTTP(t, "http://"+desktopAPIAddr+"/api/health", 10*time.Second)
+	waitHTTP(t, "http://"+desktopAPIAddr()+"/api/health", 10*time.Second)
 
-	req, _ := http.NewRequest(http.MethodPost, "http://"+desktopAPIAddr+"/api/vault", bytes.NewBufferString(`{"code":""}`))
+	req, _ := http.NewRequest(http.MethodPost, "http://"+desktopAPIAddr()+"/api/vault", bytes.NewBufferString(`{"code":""}`))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -94,7 +103,7 @@ func TestDesktopEndToEnd(t *testing.T) {
 
 	var state AppState
 	waitUntil(t, 90*time.Second, func() bool {
-		response, err := http.Get("http://" + desktopAPIAddr + "/api/state")
+		response, err := http.Get("http://" + desktopAPIAddr() + "/api/state")
 		if err != nil {
 			return false
 		}
@@ -139,7 +148,7 @@ func TestDesktopEndToEnd(t *testing.T) {
 		t.Fatal("vault status is missing device identity")
 	}
 
-	download, err := http.Get("http://" + desktopAPIAddr + "/api/files/" + privateFile.ID + "/content")
+	download, err := http.Get("http://" + desktopAPIAddr() + "/api/files/" + privateFile.ID + "/content")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +161,7 @@ func TestDesktopEndToEnd(t *testing.T) {
 		t.Fatalf("private download mismatch: got %d bytes want %d", len(got), len(privateBytes))
 	}
 
-	shareResponse, err := http.Get("http://" + desktopAPIAddr + "/api/files/" + privateFile.ID + "/share")
+	shareResponse, err := http.Get("http://" + desktopAPIAddr() + "/api/files/" + privateFile.ID + "/share")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +177,7 @@ func TestDesktopEndToEnd(t *testing.T) {
 		t.Fatalf("parse generated private share link: %v", err)
 	}
 
-	sharedDownload, err := http.Get("http://" + desktopAPIAddr + "/api/share/content?link=" + url.QueryEscape(sharePayload.Link))
+	sharedDownload, err := http.Get("http://" + desktopAPIAddr() + "/api/share/content?link=" + url.QueryEscape(sharePayload.Link))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,10 +191,20 @@ func TestDesktopEndToEnd(t *testing.T) {
 	}
 }
 
+func freeLoopbackAddr(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	return listener.Addr().String()
+}
+
 func postJSON(t *testing.T, path string, body any) {
 	t.Helper()
 	data, _ := json.Marshal(body)
-	resp, err := http.Post("http://"+desktopAPIAddr+"/api"+path, "application/json", bytes.NewReader(data))
+	resp, err := http.Post("http://"+desktopAPIAddr()+"/api"+path, "application/json", bytes.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -178,7 +178,7 @@ func run(args []string) error {
 }
 
 func printUsage() {
-	fmt.Print(`13xfile-node v0.2
+	fmt.Print(`13xfile-node v0.3 MVP
 
 Headless storage peer for the 13xfile network.
 

@@ -22,7 +22,7 @@ Each device has its own Ed25519 device identity. Vault metadata is represented a
 - `file.remove`
 - `replica.ack`
 
-A replica is counted only after a distinct device signs a receipt after completing its IPFS pin. The desktop therefore shows real `n / target` durability instead of inferring replicas from CID/provider announcements.
+A replica is counted only after a distinct device signs a receipt after completing its IPFS pin **and** that device has a recent signed heartbeat. The desktop therefore shows active `n / target` durability instead of inferring replicas from CID/provider announcements or counting an offline device forever.
 
 IPNS is still used as the mutable discovery pointer for the merged vault operation log. The current MVP retains the shared vault publishing key derived from the recovery code; replacing that final shared writer with a stronger multi-writer discovery layer remains post-MVP work.
 

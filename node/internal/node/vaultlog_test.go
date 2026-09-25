@@ -36,6 +36,39 @@ func TestVaultOpSignatureAndTamperDetection(t *testing.T) {
 	}
 }
 
+func TestDeviceHeartbeatSignatureAndMerge(t *testing.T) {
+	identity, err := ensureDeviceIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	heartbeat, err := identity.signHeartbeat("peer-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyDeviceHeartbeat(heartbeat); err != nil {
+		t.Fatalf("verify heartbeat: %v", err)
+	}
+
+	tampered := heartbeat
+	tampered.PeerID = "peer-evil"
+	if err := verifyDeviceHeartbeat(tampered); err == nil {
+		t.Fatal("expected tampered heartbeat to fail verification")
+	}
+
+	older, err := identity.signHeartbeat("peer-a", now.Add(-time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	merged := mergeDeviceHeartbeats(
+		map[string]DeviceHeartbeat{identity.DeviceID: older},
+		map[string]DeviceHeartbeat{identity.DeviceID: heartbeat},
+	)
+	if got := merged[identity.DeviceID]; !got.At.Equal(heartbeat.At) {
+		t.Fatalf("expected newest heartbeat, got %s", got.At)
+	}
+}
+
 func TestApplyVaultOpsAndReplicaReceipts(t *testing.T) {
 	identityA, err := ensureDeviceIdentity(t.TempDir())
 	if err != nil {
@@ -80,9 +113,32 @@ func TestApplyVaultOpsAndReplicaReceipts(t *testing.T) {
 		t.Fatalf("unexpected files: %#v", files)
 	}
 
-	receipts := replicaReceiptsFor(ops, file.ID, file.CID)
+	now := time.Now().UTC()
+	heartbeatA, err := identityA.signHeartbeat("peer-a", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	heartbeatB, err := identityB.signHeartbeat("peer-b", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	heartbeats := map[string]DeviceHeartbeat{
+		identityA.DeviceID: heartbeatA,
+		identityB.DeviceID: heartbeatB,
+	}
+	receipts := replicaReceiptsFor(ops, file.ID, file.CID, heartbeats, now)
 	if len(receipts) != 2 {
-		t.Fatalf("expected two distinct replica receipts, got %d", len(receipts))
+		t.Fatalf("expected two distinct live replica receipts, got %d", len(receipts))
+	}
+
+	staleHeartbeatB, err := identityB.signHeartbeat("peer-b", now.Add(-replicaHeartbeatFreshness-time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	heartbeats[identityB.DeviceID] = staleHeartbeatB
+	receipts = replicaReceiptsFor(ops, file.ID, file.CID, heartbeats, now)
+	if len(receipts) != 1 {
+		t.Fatalf("expected stale device to stop counting, got %d receipts", len(receipts))
 	}
 
 	remove, err := identityA.signOp(VaultOp{Type: vaultOpFileRemove, PeerID: "peer-a", FileID: file.ID})

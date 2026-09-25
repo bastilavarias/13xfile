@@ -439,7 +439,7 @@ func uniqueDownloadPath(dir, name string) string {
 
 func (e *DesktopEngine) removeVaultFile(ctx context.Context, id string) error {
 	payload, _ := json.Marshal(map[string]string{"id": id})
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+vaultAPIAddr+"/api/remove", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+vaultAPIAddr()+"/api/remove", bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

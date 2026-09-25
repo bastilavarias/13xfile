@@ -50,11 +50,12 @@ type DemoFile struct {
 }
 
 type demoManifest struct {
-	Version   int        `json:"version"`
-	VaultID   string     `json:"vaultId"`
-	UpdatedAt time.Time  `json:"updatedAt"`
-	Files     []DemoFile `json:"files"`
-	Ops       []VaultOp  `json:"ops,omitempty"`
+	Version   int                        `json:"version"`
+	VaultID   string                     `json:"vaultId"`
+	UpdatedAt time.Time                  `json:"updatedAt"`
+	Files     []DemoFile                 `json:"files"`
+	Ops       []VaultOp                  `json:"ops,omitempty"`
+	Devices   map[string]DeviceHeartbeat `json:"devices,omitempty"`
 }
 
 type demoConfig struct {
@@ -126,6 +127,11 @@ func (a *App) RunWebDemo(ctx context.Context, listenAddr, vaultCode string) erro
 	}
 
 	go service.syncLoop(ctx)
+	go func() {
+		publishCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cancel()
+		_ = service.publishManifest(publishCtx)
+	}()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", service.handleIndex)
@@ -205,6 +211,9 @@ func newDemoService(ctx context.Context, app *App, k kubo, requestedCode string)
 		replicating:  make(map[string]bool),
 	}
 	if err := s.loadManifest(); err != nil {
+		return nil, err
+	}
+	if _, err := s.recordDeviceHeartbeat(); err != nil {
 		return nil, err
 	}
 	s.replicateMissing()
@@ -326,6 +335,7 @@ func (s *demoService) loadManifest() error {
 			Version: demoManifestVersion,
 			VaultID: s.cfg.VaultID,
 			Files:   []DemoFile{},
+			Devices: make(map[string]DeviceHeartbeat),
 		}
 		return s.saveManifestLocked()
 	}
@@ -343,6 +353,9 @@ func (s *demoService) loadManifest() error {
 	}
 	s.manifest.VaultID = s.cfg.VaultID
 	s.manifest.Version = demoManifestVersion
+	if s.manifest.Devices == nil {
+		s.manifest.Devices = make(map[string]DeviceHeartbeat)
+	}
 	s.manifest.Files = applyVaultOps(s.manifest.Files, s.manifest.Ops)
 	return s.saveManifestLocked()
 }
@@ -370,6 +383,8 @@ func (s *demoService) syncLoop(ctx context.Context) {
 	defer ticker.Stop()
 	republish := time.NewTicker(45 * time.Minute)
 	defer republish.Stop()
+	heartbeat := time.NewTicker(replicaHeartbeatInterval)
+	defer heartbeat.Stop()
 
 	for {
 		select {
@@ -383,6 +398,17 @@ func (s *demoService) syncLoop(ctx context.Context) {
 			publishCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 			_ = s.publishManifest(publishCtx)
 			cancel()
+		case <-heartbeat.C:
+			changed, err := s.recordDeviceHeartbeat()
+			if err != nil {
+				s.setSyncResult(err)
+				continue
+			}
+			if changed {
+				publishCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+				_ = s.publishManifest(publishCtx)
+				cancel()
+			}
 		}
 	}
 }
@@ -453,6 +479,17 @@ func (s *demoService) mergeManifest(remote demoManifest) ([]DemoFile, bool, erro
 	if err != nil {
 		return nil, false, err
 	}
+	mergedDevices := mergeDeviceHeartbeats(s.manifest.Devices, remote.Devices)
+	devicesChanged := len(mergedDevices) != len(s.manifest.Devices)
+	if !devicesChanged {
+		for deviceID, heartbeat := range mergedDevices {
+			current, ok := s.manifest.Devices[deviceID]
+			if !ok || current.Signature != heartbeat.Signature {
+				devicesChanged = true
+				break
+			}
+		}
+	}
 
 	before := make(map[string]DemoFile, len(s.manifest.Files))
 	for _, file := range s.manifest.Files {
@@ -463,6 +500,7 @@ func (s *demoService) mergeManifest(remote demoManifest) ([]DemoFile, bool, erro
 		base = append(base, file)
 	}
 	s.manifest.Ops = mergedOps
+	s.manifest.Devices = mergedDevices
 	s.manifest.Files = applyVaultOps(base, mergedOps)
 
 	var newFiles []DemoFile
@@ -472,7 +510,7 @@ func (s *demoService) mergeManifest(remote demoManifest) ([]DemoFile, bool, erro
 		}
 	}
 
-	changed := opsChanged || len(newFiles) > 0 || len(s.manifest.Files) != len(before)
+	changed := opsChanged || devicesChanged || len(newFiles) > 0 || len(s.manifest.Files) != len(before)
 	if !changed {
 		return nil, false, nil
 	}
@@ -529,6 +567,28 @@ func (s *demoService) pinRemote(file DemoFile) {
 		_ = s.publishManifest(publishCtx)
 		publishCancel()
 	}
+}
+
+func (s *demoService) recordDeviceHeartbeat() (bool, error) {
+	heartbeat, err := s.device.signHeartbeat(localPeerID(s.app), time.Now().UTC())
+	if err != nil {
+		return false, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.manifest.Devices == nil {
+		s.manifest.Devices = make(map[string]DeviceHeartbeat)
+	}
+	current, ok := s.manifest.Devices[s.device.DeviceID]
+	if ok && !heartbeat.At.After(current.At) {
+		return false, nil
+	}
+	s.manifest.Devices[s.device.DeviceID] = heartbeat
+	if err := s.saveManifestLocked(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *demoService) recordReplicaAck(file DemoFile) (bool, error) {
@@ -716,6 +776,10 @@ func (s *demoService) handleStatus(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	files := append([]DemoFile(nil), s.manifest.Files...)
 	ops := append([]VaultOp(nil), s.manifest.Ops...)
+	devices := make(map[string]DeviceHeartbeat, len(s.manifest.Devices))
+	for deviceID, heartbeat := range s.manifest.Devices {
+		devices[deviceID] = heartbeat
+	}
 	lastSync := s.lastSync
 	lastError := s.lastError
 	local := make(map[string]bool, len(s.local))
@@ -730,7 +794,7 @@ func (s *demoService) handleStatus(w http.ResponseWriter, r *http.Request) {
 	for i := range files {
 		files[i].Local = local[files[i].ID]
 		files[i].Share = encodeShare(files[i])
-		files[i].Replicas = replicaReceiptsFor(ops, files[i].ID, files[i].CID)
+		files[i].Replicas = replicaReceiptsFor(ops, files[i].ID, files[i].CID, devices, time.Now().UTC())
 		files[i].ReplicaCount = len(files[i].Replicas)
 	}
 	writeJSON(w, http.StatusOK, demoStatus{

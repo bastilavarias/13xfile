@@ -494,7 +494,7 @@ func (m *TransferManager) process(job transferJob) {
 		"keyWrap":    keyWrap,
 	}
 	payload, _ := json.Marshal(register)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+vaultAPIAddr+"/api/register", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+vaultAPIAddr()+"/api/register", bytes.NewReader(payload))
 	if err != nil {
 		m.fail(job.ID, err)
 		return
