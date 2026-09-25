@@ -97,7 +97,7 @@
   z-index: 50;
   height: 76px;
   display: grid;
-  grid-template-columns: 250px minmax(280px, 540px) 1fr;
+  grid-template-columns: 250px minmax(220px, 1fr) 250px;
   align-items: center;
   gap: 24px;
   padding: 0 24px;
@@ -106,46 +106,31 @@
   backdrop-filter: blur(22px);
 }
 
-.app-search {
-  height: 40px;
-  min-width: 0;
+.titlebar-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  border: 1px solid hsl(var(--border));
-  border-radius: 10px;
-  background: hsl(var(--surface-2));
-  transition: border-color .15s ease, box-shadow .15s ease;
 }
 
-.app-search:focus-within {
-  border-color: hsl(var(--primary) / 0.7);
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+.titlebar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.app-search input {
-  min-width: 0;
-  flex: 1;
-  border: 0;
-  outline: 0;
-  color: hsl(var(--foreground));
-  background: transparent;
-  font-size: 11px;
+.titlebar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.app-search input::placeholder {
-  color: hsl(var(--muted-foreground));
-}
-
-.app-search kbd {
-  padding: 2px 6px;
-  border: 1px solid hsl(var(--border));
-  border-radius: 5px;
-  background: hsl(var(--surface-3));
-  color: hsl(var(--muted-foreground));
-  font-size: 9px;
-  line-height: 1.4;
+.titlebar-upload {
+  min-width: 176px;
+  height: 44px;
+  padding: 0 24px !important;
+  border-radius: 11px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
 }
 
 .titlebar-icon {
@@ -332,6 +317,67 @@
   padding-bottom: 10px;
 }
 
+.file-filter-group,
+.file-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.file-filter-controls {
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.vault-search {
+  width: 190px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--surface-1));
+}
+
+.vault-search:focus-within {
+  border-color: hsl(var(--primary) / .62);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / .08);
+}
+
+.vault-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: hsl(var(--foreground));
+  background: transparent;
+  font-size: 9px;
+}
+
+.vault-search input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.vault-filter-select {
+  height: 32px;
+  min-width: 104px;
+  padding: 0 26px 0 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  outline: 0;
+  color: hsl(var(--foreground));
+  background: hsl(var(--surface-1));
+  font-size: 9px;
+}
+
+.vault-filter-select:focus {
+  border-color: hsl(var(--primary) / .62);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / .08);
+}
+
 .filter-pill {
   height: 32px;
   display: inline-flex;
@@ -458,6 +504,29 @@
   box-shadow: 0 0 10px hsl(var(--primary) / .28);
 }
 
+.vault-pagination {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 4px 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 9px;
+}
+
+.vault-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vault-pagination-controls > span {
+  min-width: 82px;
+  text-align: center;
+  font-weight: 500;
+}
+
 .app-statusbar {
   height: 44px;
   display: flex;
@@ -530,6 +599,15 @@
 .transfer-pagination button {
   width: 30px;
   height: 30px;
+}
+
+.transfer-remove-button {
+  color: hsl(var(--muted-foreground));
+}
+
+.transfer-remove-button:hover {
+  color: rgb(220 38 38) !important;
+  background: rgba(239, 68, 68, .08) !important;
 }
 
 .transfer-row {
@@ -814,7 +892,22 @@
 
 @media (max-width: 1040px) {
   .app-titlebar {
-    grid-template-columns: 205px minmax(240px, 1fr) auto;
+    grid-template-columns: 205px minmax(180px, 1fr) 205px;
+  }
+
+  .titlebar-upload {
+    min-width: 150px;
+  }
+
+  .file-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .file-filter-controls {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .app-sidebar {

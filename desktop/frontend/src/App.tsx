@@ -3,7 +3,6 @@ import { QRCodeSVG } from "qrcode.react"
 import {
   Activity,
   ArrowUpDown,
-  Bell,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -72,6 +71,7 @@ type VaultFile = {
   cid: string
   size: number
   mime: string
+  addedAt: string
   visibility?: "public" | "private"
   cipher?: string
   keyWrap?: string
@@ -90,6 +90,8 @@ type Transfer = {
   progress: number
   cid?: string
   error?: string
+  createdAt: string
+  updatedAt: string
 }
 
 type VaultStatus = {
@@ -174,6 +176,9 @@ function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme)
   const [activeSection, setActiveSection] = useState<ActiveSection>("vault")
   const [fileFilter, setFileFilter] = useState<"all" | "encrypted" | "public">("all")
+  const [fileSort, setFileSort] = useState<"latest" | "oldest" | "name" | "size">("latest")
+  const [fileHealth, setFileHealth] = useState<"all" | "safe" | "replicating">("all")
+  const [vaultPage, setVaultPage] = useState(0)
   const [visibility, setVisibility] = useState<"private" | "public">("private")
   const [searchQuery, setSearchQuery] = useState("")
   const [joinCode, setJoinCode] = useState("")
@@ -408,10 +413,15 @@ function App() {
 
   const activeTransfers =
     state?.transfers.filter((transfer) => transfer.status === "queued" || transfer.status === "running") || []
-  const transferPageSize = 3
-  const transferPageCount = Math.max(1, Math.ceil((state?.transfers.length || 0) / transferPageSize))
-  const visibleTransfers =
-    state?.transfers.slice(trayPage * transferPageSize, trayPage * transferPageSize + transferPageSize) || []
+  const transferPageSize = 5
+  const sortedTransfers = [...(state?.transfers || [])].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  )
+  const transferPageCount = Math.max(1, Math.ceil(sortedTransfers.length / transferPageSize))
+  const visibleTransfers = sortedTransfers.slice(
+    trayPage * transferPageSize,
+    trayPage * transferPageSize + transferPageSize,
+  )
   const aggregate = useMemo(() => {
     if (!activeTransfers.length) return 100
     return Math.round(activeTransfers.reduce((sum, item) => sum + item.progress, 0) / activeTransfers.length)
@@ -420,6 +430,10 @@ function App() {
   useEffect(() => {
     setTrayPage((page) => Math.min(page, transferPageCount - 1))
   }, [transferPageCount])
+
+  useEffect(() => {
+    setVaultPage(0)
+  }, [fileFilter, fileHealth, fileSort, searchQuery])
 
   if (!state) {
     return (
@@ -480,8 +494,25 @@ function App() {
     if (fileFilter === "encrypted") return file.visibility === "private"
     return true
   })
-  const filteredFiles = scopedFiles.filter((file) =>
-    file.name.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+  const filteredFiles = scopedFiles
+    .filter((file) => file.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    .filter((file) => {
+      if (fileHealth === "safe") return (file.replicaCount || 0) >= state.settings.replicationTarget
+      if (fileHealth === "replicating") return (file.replicaCount || 0) < state.settings.replicationTarget
+      return true
+    })
+    .sort((a, b) => {
+      if (fileSort === "oldest") return new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime()
+      if (fileSort === "name") return a.name.localeCompare(b.name)
+      if (fileSort === "size") return b.size - a.size
+      return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+    })
+  const vaultPageSize = 15
+  const vaultPageCount = Math.max(1, Math.ceil(filteredFiles.length / vaultPageSize))
+  const vaultPageIndex = Math.min(vaultPage, vaultPageCount - 1)
+  const pagedFiles = filteredFiles.slice(
+    vaultPageIndex * vaultPageSize,
+    vaultPageIndex * vaultPageSize + vaultPageSize,
   )
   const safeCount = files.filter(
     (file) => (file.replicaCount || 0) >= state.settings.replicationTarget,
@@ -505,25 +536,17 @@ function App() {
   return (
     <div className="app-shell min-h-screen bg-background">
       <header className="app-titlebar">
-        <div className="flex min-w-[250px] items-center">
+        <div className="titlebar-brand">
           <img src={wordmark} alt="13xfile" className="h-auto w-[172px]" draggable={false} />
         </div>
 
-        <label className="app-search">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search files, folders, or shared links…"
-            aria-label="Search files"
-          />
-          <kbd>Ctrl K</kbd>
-        </label>
-
-        <div className="flex items-center gap-2">
-          <Button className="brand-button" onClick={() => inputRef.current?.click()} disabled={staging}>
-            <UploadCloud className="h-4 w-4" /> {staging ? "Staging…" : "Upload"}
+        <div className="titlebar-center">
+          <Button className="brand-button titlebar-upload" onClick={() => inputRef.current?.click()} disabled={staging}>
+            <UploadCloud className="h-5 w-5" /> {staging ? "Staging…" : "Upload files"}
           </Button>
+        </div>
+
+        <div className="titlebar-actions">
           <Button
             variant="outline"
             size="icon"
@@ -532,9 +555,6 @@ function App() {
             aria-label="Toggle theme"
           >
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
-          <Button variant="outline" size="icon" className="titlebar-icon" aria-label="Notifications">
-            <Bell className="h-4 w-4" />
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -556,6 +576,14 @@ function App() {
           </DropdownMenu>
         </div>
       </header>
+
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(event) => event.target.files && uploadFiles(event.target.files)}
+      />
 
       <aside className="app-sidebar">
         <nav className="space-y-1">
@@ -652,13 +680,6 @@ function App() {
                   <Button className="brand-button" onClick={() => inputRef.current?.click()} disabled={staging}>
                     <File className="h-4 w-4" /> Choose files
                   </Button>
-                  <input
-                    ref={inputRef}
-                    type="file"
-                    multiple
-                    className="hidden"
-                    onChange={(event) => event.target.files && uploadFiles(event.target.files)}
-                  />
                 </div>
               </div>
 
@@ -671,22 +692,16 @@ function App() {
 
             <section className="mt-4">
               <div className="file-toolbar">
-                <div className="flex items-center gap-1.5">
+                <div className="file-filter-group">
                   <button
-                    className={`filter-pill ${activeSection === "vault" && fileFilter === "all" ? "filter-pill-active" : ""}`}
-                    onClick={() => {
-                      setActiveSection("vault")
-                      setFileFilter("all")
-                    }}
+                    className={`filter-pill ${fileFilter === "all" ? "filter-pill-active" : ""}`}
+                    onClick={() => setFileFilter("all")}
                   >
                     All files <span>{files.length}</span>
                   </button>
                   <button
-                    className={`filter-pill ${activeSection === "vault" && fileFilter === "encrypted" ? "filter-pill-active" : ""}`}
-                    onClick={() => {
-                      setActiveSection("vault")
-                      setFileFilter("encrypted")
-                    }}
+                    className={`filter-pill ${fileFilter === "encrypted" ? "filter-pill-active" : ""}`}
+                    onClick={() => setFileFilter("encrypted")}
                   >
                     <Lock className="h-3.5 w-3.5" /> Encrypted
                   </button>
@@ -697,9 +712,42 @@ function App() {
                     <Globe2 className="h-3.5 w-3.5" /> Public
                   </button>
                 </div>
-                <Button variant="outline" size="sm" onClick={refresh}>
-                  <RefreshCw className="h-3.5 w-3.5" /> Refresh
-                </Button>
+
+                <div className="file-filter-controls">
+                  <label className="vault-search">
+                    <Search className="h-3.5 w-3.5" />
+                    <input
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search files"
+                      aria-label="Search vault files"
+                    />
+                  </label>
+                  <select
+                    className="vault-filter-select"
+                    value={fileHealth}
+                    onChange={(event) => setFileHealth(event.target.value as "all" | "safe" | "replicating")}
+                    aria-label="Filter by replication"
+                  >
+                    <option value="all">All status</option>
+                    <option value="safe">Safe</option>
+                    <option value="replicating">Replicating</option>
+                  </select>
+                  <select
+                    className="vault-filter-select"
+                    value={fileSort}
+                    onChange={(event) => setFileSort(event.target.value as "latest" | "oldest" | "name" | "size")}
+                    aria-label="Sort vault files"
+                  >
+                    <option value="latest">Latest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="name">Name A–Z</option>
+                    <option value="size">Largest</option>
+                  </select>
+                  <Button variant="outline" size="sm" onClick={refresh}>
+                    <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                  </Button>
+                </div>
               </div>
 
               <div className="file-table">
@@ -720,7 +768,7 @@ function App() {
                     </p>
                   </div>
                 ) : (
-                  filteredFiles.map((file) => {
+                  pagedFiles.map((file) => {
                     const replicaCount = file.replicaCount || 0
                     const safe = replicaCount >= state.settings.replicationTarget
                     return (
@@ -787,6 +835,36 @@ function App() {
                   })
                 )}
               </div>
+
+              {filteredFiles.length > vaultPageSize && (
+                <div className="vault-pagination">
+                  <span className="vault-pagination-summary">
+                    Showing {vaultPageIndex * vaultPageSize + 1}–
+                    {Math.min(filteredFiles.length, (vaultPageIndex + 1) * vaultPageSize)} of {filteredFiles.length}
+                  </span>
+                  <div className="vault-pagination-controls">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={vaultPageIndex === 0}
+                      onClick={() => setVaultPage((page) => Math.max(0, page - 1))}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" /> Previous
+                    </Button>
+                    <span>
+                      Page {vaultPageIndex + 1} of {vaultPageCount}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={vaultPageIndex >= vaultPageCount - 1}
+                      onClick={() => setVaultPage((page) => Math.min(vaultPageCount - 1, page + 1))}
+                    >
+                      Next <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="app-statusbar">
                 <div className="flex items-center gap-2">
@@ -1398,41 +1476,58 @@ function TransferRows({
                 </div>
                 <div className="flex items-center gap-1">
                   {item.status === "complete" && <Check className="h-4 w-4 text-emerald-500" />}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" aria-label={`Actions for ${item.name}`}>
-                        <Ellipsis className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {active && (
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            request(`/transfers/${item.id}/cancel`, { method: "POST" }).then(refresh)
-                          }
-                        >
-                          <X className="mr-2 h-4 w-4" /> Cancel transfer
-                        </DropdownMenuItem>
-                      )}
-                      {retryable && (
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            request(`/transfers/${item.id}/retry`, { method: "POST" }).then(refresh)
-                          }
-                        >
-                          <RefreshCw className="mr-2 h-4 w-4" /> Retry
-                        </DropdownMenuItem>
-                      )}
-                      {!active && (
-                        <>
-                          {retryable && <DropdownMenuSeparator />}
-                          <DropdownMenuItem className="text-red-600" onSelect={() => onRemove(item)}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Remove from list
+                  {compact ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="transfer-remove-button"
+                      aria-label={active ? `Cancel ${item.name}` : `Remove ${item.name} from transfer history`}
+                      title={active ? "Cancel transfer" : "Remove from transfer history"}
+                      onClick={() =>
+                        active
+                          ? request(`/transfers/${item.id}/cancel`, { method: "POST" }).then(refresh)
+                          : onRemove(item)
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label={`Actions for ${item.name}`}>
+                          <Ellipsis className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {active && (
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              request(`/transfers/${item.id}/cancel`, { method: "POST" }).then(refresh)
+                            }
+                          >
+                            <X className="mr-2 h-4 w-4" /> Cancel transfer
                           </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        )}
+                        {retryable && (
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              request(`/transfers/${item.id}/retry`, { method: "POST" }).then(refresh)
+                            }
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4" /> Retry
+                          </DropdownMenuItem>
+                        )}
+                        {!active && (
+                          <>
+                            {retryable && <DropdownMenuSeparator />}
+                            <DropdownMenuItem className="text-red-600" onSelect={() => onRemove(item)}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Remove from list
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
               {active && (
