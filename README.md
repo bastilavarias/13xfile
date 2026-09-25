@@ -112,7 +112,7 @@ In a second terminal, run the native desktop app:
 .\\dev.cmd -NoPull
 ```
 
-Development desktop runs default **Share to feed** submissions against `http://127.0.0.1:8090`. Set `FEED_API_URL` explicitly only when you intentionally want a different feed service.
+Development desktop runs default **Share to feed** submissions against `http://127.0.0.1:8090`. The Windows dev launcher also stops an older installed/dev 13xfile desktop process before starting the current checkout, preventing the single-instance handoff from silently returning you to an outdated executable. Set `FEED_API_URL` explicitly only when you intentionally want a different feed service.
 
 Stop the attached Docker stack with `Ctrl+C`. To remove stopped containers/networks use:
 

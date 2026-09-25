@@ -33,6 +33,27 @@ function Invoke-Step {
     }
 }
 
+function Stop-StaleDesktopInstances {
+    $targets = @()
+    foreach ($name in @("13xfile", "desktop")) {
+        $targets += @(Get-Process -Name $name -ErrorAction SilentlyContinue)
+    }
+
+    $targets = @($targets | Sort-Object Id -Unique)
+    if ($targets.Count -eq 0) {
+        return
+    }
+
+    Write-Host ""
+    Write-Host "==> Stop previously running 13xfile desktop instance" -ForegroundColor DarkCyan
+    foreach ($process in $targets) {
+        Write-Host "Stopping $($process.ProcessName).exe (PID $($process.Id))" -ForegroundColor DarkGray
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    }
+
+    Start-Sleep -Milliseconds 600
+}
+
 Assert-Command git
 Assert-Command npm
 Assert-Command go
@@ -121,6 +142,8 @@ try {
 
     Push-Location $DesktopDir
     try {
+        Stop-StaleDesktopInstances
+
         Write-Host ""
         Write-Host "==> Start 13xfile desktop development app" -ForegroundColor Cyan
         Write-Host "Press Ctrl+C in this terminal to stop it." -ForegroundColor DarkGray
