@@ -64,6 +64,26 @@ The Wails desktop client owns its own node and Kubo runtime. Current features in
 
 See `desktop/README.md`.
 
+### Windows development helper
+
+From repository root, run:
+
+```powershell
+.\\dev.cmd
+```
+
+It safely fast-forwards `main`, installs frontend dependencies when needed, rebuilds the desktop frontend, then starts the Wails desktop app with `go run .`.
+
+Useful options:
+
+```powershell
+.\\dev.cmd -BuildOnly     # pull + build, do not launch
+.\\dev.cmd -NoPull       # build/run current checkout without pulling
+.\\dev.cmd -CleanInstall # force npm ci before building
+```
+
+The updater refuses to pull when the working tree has uncommitted changes or the current branch is not `main`.
+
 ## Headless node
 
 `13xfile-node` is the always-on/server peer. It self-manages a pinned Kubo runtime, keeps an isolated IPFS repository, follows vault metadata, pins learned CIDs, and publishes signed replica receipts after successful storage.
