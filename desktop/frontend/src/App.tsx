@@ -939,7 +939,7 @@ function App() {
       </Dialog>
 
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="share-dialog max-w-5xl">
+        <DialogContent className="share-dialog max-w-3xl">
           {shareTarget && (
             <>
               <DialogHeader className="sr-only">
@@ -972,7 +972,7 @@ function App() {
                 </div>
               </div>
 
-              <div className={`share-grid ${isPublicShare ? "" : "share-grid-single"}`}>
+              <div className={`share-grid ${SHOW_SHARE_QR && isPublicShare ? "" : "share-grid-single"}`}>
                 <div className="share-links">
                   {isPublicShare && webShareLink && (
                     <ShareLinkBlock
