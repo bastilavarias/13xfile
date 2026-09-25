@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import {
-  Activity,
   ArrowUpDown,
   Check,
   ChevronDown,
@@ -54,9 +53,9 @@ import { Progress } from "@/components/ui/progress"
 
 const API = "http://127.0.0.1:8791/api"
 const THEME_KEY = "13xfile-theme"
+const SHOW_SHARE_QR = false
 
 type Theme = "dark" | "light"
-type ActiveSection = "vault" | "transfers" | "activity"
 
 type ReplicaReceipt = {
   deviceId: string
@@ -174,7 +173,6 @@ async function downloadBlob(url: string, fallbackName = "13xfile-download") {
 function App() {
   const [state, setState] = useState<AppState | null>(null)
   const [theme, setTheme] = useState<Theme>(initialTheme)
-  const [activeSection, setActiveSection] = useState<ActiveSection>("vault")
   const [fileFilter, setFileFilter] = useState<"all" | "encrypted" | "public">("all")
   const [fileSort, setFileSort] = useState<"latest" | "oldest" | "name" | "size">("latest")
   const [fileHealth, setFileHealth] = useState<"all" | "safe" | "replicating">("all")
@@ -518,18 +516,6 @@ function App() {
     (file) => (file.replicaCount || 0) >= state.settings.replicationTarget,
   ).length
 
-  const sidebarItems: Array<{
-    key: ActiveSection
-    label: string
-    subtitle: string
-    icon: typeof Files
-    count?: number
-  }> = [
-    { key: "vault", label: "Vault", subtitle: "Your files", icon: Files },
-    { key: "transfers", label: "Transfers", subtitle: "Uploads & downloads", icon: ArrowUpDown, count: activeTransfers.length },
-    { key: "activity", label: "Activity", subtitle: "Recent events", icon: Activity },
-  ]
-
   const selectedGatewayURL = shareTarget ? `${shareGateway}${shareTarget.cid}` : ""
   const isPublicShare = shareTarget?.visibility !== "private"
 
@@ -587,27 +573,13 @@ function App() {
 
       <aside className="app-sidebar">
         <nav className="space-y-1">
-          {sidebarItems.map((item) => {
-            const Icon = item.icon
-            const active = activeSection === item.key
-            return (
-              <button
-                key={item.key}
-                className={`sidebar-item ${active ? "sidebar-item-active" : ""}`}
-                onClick={() => {
-                  setActiveSection(item.key)
-                  if (item.key === "vault") setFileFilter("all")
-                }}
-              >
-                <Icon className="h-5 w-5" />
-                <span className="min-w-0 flex-1 text-left">
-                  <span className="block text-sm font-medium">{item.label}</span>
-                  <span className="block truncate text-[10px] text-muted-foreground">{item.subtitle}</span>
-                </span>
-                {!!item.count && <span className="sidebar-count">{item.count}</span>}
-              </button>
-            )
-          })}
+          <button className="sidebar-item sidebar-item-active" onClick={() => setFileFilter("all")}>
+            <Files className="h-5 w-5" />
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block text-sm font-medium">Vault</span>
+              <span className="block truncate text-[10px] text-muted-foreground">Your files</span>
+            </span>
+          </button>
           <button className="sidebar-item" onClick={openSettings}>
             <Settings2 className="h-5 w-5" />
             <span className="min-w-0 flex-1 text-left">
@@ -650,8 +622,7 @@ function App() {
           </div>
         )}
 
-        {activeSection === "vault" && (
-          <>
+        <>
             <section data-file-drop-target className="upload-zone">
               <div className="upload-zone-main">
                 <div className="upload-icon">
@@ -878,59 +849,10 @@ function App() {
               </div>
             </section>
           </>
-        )}
 
-        {activeSection === "transfers" && (
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <h2>Transfers</h2>
-                <p>{activeTransfers.length} active · continues while 13xfile is running</p>
-              </div>
-              {activeTransfers.length > 0 && (
-                <Button variant="outline" size="sm" onClick={togglePause}>
-                  {state.paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-                  {state.paused ? "Resume" : "Pause"}
-                </Button>
-              )}
-            </div>
-            <TransferRows transfers={state.transfers} refresh={refresh} onRemove={removeTransfer} />
-          </section>
-        )}
-
-        {activeSection === "activity" && (
-          <section className="section-panel">
-            <div className="section-heading">
-              <div>
-                <h2>Activity</h2>
-                <p>Recent transfer and replication events from this device.</p>
-              </div>
-            </div>
-            <div className="activity-list">
-              {state.transfers.length ? (
-                state.transfers.map((item) => (
-                  <div className="activity-row" key={item.id}>
-                    <span className={`activity-dot activity-${item.status}`} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs font-medium">{item.name}</div>
-                      <div className="mt-1 text-[10px] text-muted-foreground">
-                        {visibilityLabel(item.visibility)} · {item.stage}
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="capitalize">
-                      {item.status}
-                    </Badge>
-                  </div>
-                ))
-              ) : (
-                <div className="py-16 text-center text-xs text-muted-foreground">No recent activity.</div>
-              )}
-            </div>
-          </section>
-        )}
       </main>
 
-      {state.transfers.length > 0 && activeSection !== "transfers" && (
+      {state.transfers.length > 0 && (
         <aside className="transfer-tray">
           <button className="transfer-tray-head" onClick={() => setTrayOpen(!trayOpen)}>
             <div className="min-w-0">
@@ -1024,7 +946,7 @@ function App() {
                 <DialogTitle>Share {shareTarget.name}</DialogTitle>
                 <DialogDescription>
                   {isPublicShare
-                    ? "Share this public file by web link, 13xfile app link, or QR code."
+                    ? "Share this public file by web link or 13xfile app link."
                     : "Share this encrypted file with another 13xfile desktop client."}
                 </DialogDescription>
               </DialogHeader>
@@ -1072,7 +994,7 @@ function App() {
                   />
                 </div>
 
-                {isPublicShare && webShareLink && (
+                {SHOW_SHARE_QR && isPublicShare && webShareLink && (
                   <div className="qr-panel">
                     <div className="qr-icon-ring">
                       <ExternalLink className="h-5 w-5" />

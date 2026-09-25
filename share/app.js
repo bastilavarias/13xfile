@@ -32,6 +32,7 @@ const themeToggle = document.querySelector("#theme-toggle")
 const themeIcon = document.querySelector("#theme-icon")
 const themeLabel = document.querySelector("#theme-label")
 const shareQR = document.querySelector("#share-qr")
+const SHOW_SHARE_QR = false
 
 let descriptor = null
 let gatewayStates = []
@@ -122,7 +123,7 @@ function friendlyType(mime, name) {
 }
 
 function renderQR() {
-  if (!shareQR) return
+  if (!SHOW_SHARE_QR || !shareQR) return
   if (!window.QRCode?.toCanvas) {
     shareQR.closest(".qr-panel").style.display = "none"
     return
