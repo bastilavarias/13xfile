@@ -140,32 +140,27 @@ func (s *server) submissions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	manifestCID := ""
-	ipnsName := ""
-	warning := ""
-	published := false
+	manifestQueued := s.publisher != nil
 	if s.publisher != nil {
-		var err error
-		manifestCID, ipnsName, err = s.publisher.publishManifest(r.Context(), input.MetadataCID)
-		if err != nil {
-			warning = err.Error()
-			log.Printf("publish manifest: %v", err)
-		} else {
-			published = true
-		}
+		queued := input
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+
+			manifestCID, ipnsName, err := s.publisher.publishManifest(ctx, queued)
+			if err != nil {
+				log.Printf("publish manifest for %s: %v", queued.MetadataCID, err)
+				return
+			}
+			log.Printf("published feed manifest %s for metadata %s via IPNS %s", manifestCID, queued.MetadataCID, ipnsName)
+		}()
 	}
 
-	status := http.StatusCreated
-	if !published {
-		status = http.StatusAccepted
-	}
-	writeJSON(w, status, map[string]any{
+	writeJSON(w, http.StatusAccepted, map[string]any{
 		"accepted":          true,
 		"metadataCid":       input.MetadataCID,
-		"manifestCid":       manifestCID,
-		"ipnsName":          ipnsName,
-		"manifestPublished": published,
-		"warning":           warning,
+		"manifestQueued":    manifestQueued,
+		"manifestPublished": false,
 	})
 }
 

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type ipfsPublisher struct {
 	ipnsKey string
 	store   *store
 	client  *http.Client
+	mu      sync.Mutex
 }
 
 func newIPFSPublisher(rpc, ipnsKey string, store *store) *ipfsPublisher {
@@ -34,9 +36,26 @@ func newIPFSPublisher(rpc, ipnsKey string, store *store) *ipfsPublisher {
 	}
 }
 
-func (p *ipfsPublisher) publishManifest(ctx context.Context, metadataCID string) (string, string, error) {
-	if err := p.pinCID(ctx, metadataCID); err != nil {
-		return "", "", fmt.Errorf("pin metadata: %w", err)
+func (p *ipfsPublisher) publishManifest(ctx context.Context, input submission) (string, string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	metadataRaw, err := json.Marshal(input.Entry)
+	if err != nil {
+		return "", "", err
+	}
+	metadataRaw = append(metadataRaw, '\n')
+
+	storedMetadataCID, err := p.addJSON(ctx, "13xfile-feed-entry.json", metadataRaw)
+	if err != nil {
+		return "", "", fmt.Errorf("store metadata on feed IPFS: %w", err)
+	}
+	if storedMetadataCID != input.MetadataCID {
+		return "", "", fmt.Errorf(
+			"metadata CID mismatch: desktop=%s feed=%s",
+			input.MetadataCID,
+			storedMetadataCID,
+		)
 	}
 
 	previous, err := p.store.state("latest_manifest_cid")
@@ -49,7 +68,7 @@ func (p *ipfsPublisher) publishManifest(ctx context.Context, metadataCID string)
 		Type:      "13xfile.feed.manifest",
 		CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
 		Previous:  previous,
-		Entries:   []string{metadataCID},
+		Entries:   []string{input.MetadataCID},
 	})
 	if err != nil {
 		return "", "", err
@@ -75,32 +94,6 @@ func (p *ipfsPublisher) publishManifest(ctx context.Context, metadataCID string)
 	}
 
 	return cid, ipnsName, nil
-}
-
-func (p *ipfsPublisher) pinCID(ctx context.Context, cid string) error {
-	endpoint, err := url.Parse(p.rpc + "/api/v0/pin/add")
-	if err != nil {
-		return err
-	}
-	query := endpoint.Query()
-	query.Set("arg", "/ipfs/"+cid)
-	query.Set("recursive", "true")
-	endpoint.RawQuery = query.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), nil)
-	if err != nil {
-		return err
-	}
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode/100 != 2 {
-		message, _ := io.ReadAll(io.LimitReader(resp.Body, 16<<10))
-		return fmt.Errorf("IPFS pin: HTTP %s: %s", resp.Status, strings.TrimSpace(string(message)))
-	}
-	return nil
 }
 
 func (p *ipfsPublisher) addJSON(ctx context.Context, name string, raw []byte) (string, error) {

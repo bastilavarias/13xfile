@@ -71,6 +71,8 @@ limit=20
 
 The API intentionally indexes only `public` feed entries.
 
+Feed submission is acknowledged as soon as the searchable SQLite projection is stored. IPFS metadata persistence, manifest creation, and IPNS publication continue asynchronously in the API process so slow IPNS publication cannot block the desktop upload request. The API also re-adds the submitted metadata JSON to its own Kubo node and verifies that the resulting CID matches the desktop-provided metadata CID before chaining it into the decentralized manifest history.
+
 ## Rebuild after database loss
 
 If the SQLite index is lost but the IPNS feed name and Kubo node are available, rebuild it from the decentralized manifest chain:
