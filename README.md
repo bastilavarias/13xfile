@@ -126,6 +126,16 @@ To also wipe the local feed database and Docker IPFS repository:
 docker compose down -v
 ```
 
+### Pull latest changes
+
+From the repository root on Windows:
+
+```powershell
+.\\pull.cmd
+```
+
+This safely fast-forwards `main` from `origin/main`. It discards only generated `desktop/frontend/dist` output from previous local builds and refuses to pull when real source changes are present.
+
 ### Windows development helper
 
 From repository root, run:
