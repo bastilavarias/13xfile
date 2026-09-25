@@ -1,0 +1,11 @@
+.git
+.github
+**/node_modules
+desktop/frontend/dist
+.13xfile
+.13xfile-node
+.13xfile-local
+.13xfile.local.json
+*.exe
+*.test
+*.test.exe

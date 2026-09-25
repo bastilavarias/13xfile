@@ -25,7 +25,7 @@ type ShareDescriptor struct {
 }
 
 const (
-	publicWebShareBase = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/bastilavarias/13xfile/prototype/share/index.html"
+	publicWebShareBase = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/bastilavarias/13xfile/main/share/index.html"
 	appSharePrefix     = "x13file://share/"
 	legacySharePrefix  = "13xfile://share/"
 )

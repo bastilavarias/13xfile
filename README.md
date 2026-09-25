@@ -73,31 +73,58 @@ The Wails desktop client owns its own node and Kubo runtime. Current features in
 
 See `desktop/README.md`.
 
-### One-time local development setup
+### Local development with Docker
 
-This project is still in local testing mode. For a fresh Windows clone, run this once from the repository root:
+The web surfaces and feed infrastructure are Dockerized for local testing. No one-time setup script or production deployment is required.
+
+Requirements:
+
+- Docker Desktop with Docker Compose
+- Go and Node.js only for running/building the native desktop app
+
+Start the local web/feed stack from the repository root:
 
 ```powershell
-.\\setup-local.cmd
+.\\pages.cmd
 ```
 
-The setup command installs/downloads the local development dependencies, verifies the feed API and page server, builds the desktop frontend, and creates a repo-local development configuration that points desktop **Share to feed** publishing at:
+That is a convenience wrapper for:
+
+```powershell
+docker compose up --build
+```
+
+It starts:
 
 ```text
-http://127.0.0.1:8090
+Main      http://127.0.0.1:8080/
+Feed      http://127.0.0.1:8081/
+Share     http://127.0.0.1:8082/
+Feed API  http://127.0.0.1:8090/health
+IPFS      internal Docker service
 ```
 
-That configuration is local-only and ignored by Git. After setup, the normal testing workflow is:
+The local feed API keeps its SQLite index and Kubo repository in Docker named volumes, so data survives container recreation.
+
+In a second terminal, run the native desktop app:
 
 ```powershell
-# Terminal 1: product site + feed + share + local feed API
-.\\pages.cmd
-
-# Terminal 2: desktop app, automatically wired to the local feed API
 .\\dev.cmd -NoPull
 ```
 
-No production deployment is required for this workflow.
+Development desktop runs default **Share to feed** submissions against `http://127.0.0.1:8090`. Set `FEED_API_URL` explicitly only when you intentionally want a different feed service.
+
+Stop the attached Docker stack with `Ctrl+C`. To remove stopped containers/networks use:
+
+```powershell
+docker compose down
+```
+
+To also wipe the local feed database and Docker IPFS repository:
+
+```powershell
+docker compose down -v
+```
 
 ### Windows development helper
 
@@ -118,25 +145,6 @@ Useful options:
 ```
 
 The updater automatically discards generated `desktop/frontend/dist` changes from prior local builds, but still refuses to pull when real source files have uncommitted changes or the current branch is not `main`.
-
-### Run all web surfaces locally
-
-From the repository root on Windows:
-
-```powershell
-.\\pages.cmd
-```
-
-This single command builds and runs the local product site, feed, share page server, and feed API:
-
-```text
-Main   http://127.0.0.1:8080/
-Feed   http://127.0.0.1:8081/
-Share  http://127.0.0.1:8082/
-API    http://127.0.0.1:8090/health
-```
-
-The command opens Main and Feed automatically. Share is still running, but is not auto-opened because a valid share descriptor is normally supplied in the URL hash. Press `Ctrl+C` once to stop the whole local web stack. Use `.\\pages.cmd -NoOpen` if you do not want browser tabs opened automatically.
 
 ## Headless node
 
