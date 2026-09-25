@@ -4,7 +4,7 @@
 
 ## Desktop preview
 
-![13xfile desktop preview](docs/images/desktop-preview.png)
+![13xfile desktop preview](docs/images/desktop-preview.svg)
 
 The desktop client supports public and encrypted uploads, optional **Share to feed** publishing, IPFS replication status, transfer tracking, browser sharing, and local-first vault management.
 
