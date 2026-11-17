@@ -53,7 +53,7 @@
           </div>
 
           <p class="file-description">
-            Shared via 13xfile. This file is stored and distributed across the IPFS network for resilient and open access.
+            Shared via 13xfile. Downloads go directly through an IPFS gateway, with no large-file transfer through the 13xfile website.
           </p>
 
           <button class="download-button" id="download-button" type="button" disabled>
@@ -69,15 +69,7 @@
             <span id="availability-text">Finding the best IPFS route…</span>
           </div>
 
-          <div class="progress-wrap" id="progress-wrap" hidden>
-            <div class="progress-track">
-              <div class="progress-bar" id="progress-bar"></div>
-            </div>
-            <div class="progress-copy">
-              <span id="progress-label">Connecting…</span>
-              <span id="progress-percent"></span>
-            </div>
-          </div>
+
         </div>
 
         <aside class="qr-panel" id="qr-panel" hidden>
@@ -180,8 +172,17 @@
 
     <section class="error-card" id="error-card" hidden>
       <div class="error-icon" aria-hidden="true">!</div>
-      <h1 id="error-title">Invalid share link</h1>
-      <p id="error-message">This 13xfile link is incomplete or unsupported.</p>
+      <h1 id="error-title">Open a public file</h1>
+      <p id="error-message">Paste a public 13xfile link or IPFS CID to view download options.</p>
+      <form id="open-file-form" class="open-file-form">
+        <label for="open-file-input">Public share link or IPFS CID</label>
+        <div class="open-file-fields">
+          <input id="open-file-input" type="text" required autocomplete="off" spellcheck="false"
+            placeholder="Paste a link or CID" />
+          <button type="submit">Open file</button>
+        </div>
+      </form>
+      <a class="browse-feed-link" href="https://feed.13xfile.app/">Browse public files</a>
     </section>
   </main>
 

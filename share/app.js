@@ -16,10 +16,6 @@ const errorCard = document.querySelector("#error-card")
 const downloadButton = document.querySelector("#download-button")
 const downloadLabel = document.querySelector("#download-label")
 const downloadSize = document.querySelector("#download-size")
-const progressWrap = document.querySelector("#progress-wrap")
-const progressBar = document.querySelector("#progress-bar")
-const progressLabel = document.querySelector("#progress-label")
-const progressPercent = document.querySelector("#progress-percent")
 const originList = document.querySelector("#origin-list")
 const originSummary = document.querySelector("#origin-summary")
 const refreshOriginsButton = document.querySelector("#refresh-origins")
@@ -33,13 +29,14 @@ const themeIcon = document.querySelector("#theme-icon")
 const themeLabel = document.querySelector("#theme-label")
 const shareQR = document.querySelector("#share-qr")
 const SHOW_SHARE_QR = false
+const openFileForm = document.querySelector("#open-file-form")
+const openFileInput = document.querySelector("#open-file-input")
 
 let descriptor = null
 let gatewayStates = []
 let selectedOrigin = ""
 let manualOriginSelection = false
 let probeGeneration = 0
-let isDownloading = false
 
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme
@@ -70,31 +67,53 @@ function showError(title, message) {
   document.querySelector("#error-message").textContent = message
 }
 
+function validCID(cid) {
+  return typeof cid === "string" && /^[A-Za-z0-9]{46,120}$/.test(cid)
+}
+
+function encodeDescriptor(desc) {
+  const bytes = new TextEncoder().encode(JSON.stringify(desc))
+  let binary = ""
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
+}
+
 function decodeDescriptor() {
   const payload = location.hash.replace(/^#/, "").trim()
-  if (!payload) throw new Error("This share link does not contain a file descriptor.")
 
+  if (!payload) {
+    const params = new URLSearchParams(location.search)
+    const cid = (params.get("cid") || "").trim()
+    if (!validCID(cid)) {
+      throw new Error("Paste a public 13xfile share link or an IPFS CID below to open a download.")
+    }
+    const name = (params.get("name") || "").trim().slice(0, 240) || "Shared IPFS file"
+    const requestedSize = Number(params.get("size"))
+    const size = Number.isSafeInteger(requestedSize) && requestedSize > 0 ? requestedSize : 0
+    const mime = "application/octet-stream"
+    const encoded = encodeDescriptor({ v: 1, name, cid, size, mime, visibility: "public" })
+    return { name, cid, size, mime, visibility: "public", payload: encoded }
+  }
+
+  if (payload.length > 8192) throw new Error("This share descriptor is too large.")
   const normalized = payload.replace(/-/g, "+").replace(/_/g, "/")
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4)
   const binary = atob(padded)
   const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
   const parsed = JSON.parse(new TextDecoder().decode(bytes))
 
-  if (parsed.v !== 1 || typeof parsed.cid !== "string" || typeof parsed.name !== "string") {
+  if (parsed.v !== 1 || typeof parsed.name !== "string" || !validCID(parsed.cid)) {
     throw new Error("This share link uses an unsupported descriptor.")
-  }
-  if (!/^[A-Za-z0-9]+$/.test(parsed.cid)) {
-    throw new Error("The file CID in this link is invalid.")
   }
   if ((parsed.visibility || "public") !== "public") {
     throw new Error("Encrypted browser sharing is not enabled. Open this link in the 13xfile desktop app.")
   }
 
   return {
-    name: parsed.name,
+    name: parsed.name.slice(0, 240) || "Shared IPFS file",
     cid: parsed.cid,
-    size: Number(parsed.size) || 0,
-    mime: parsed.mime || "application/octet-stream",
+    size: Number.isSafeInteger(parsed.size) && parsed.size > 0 ? parsed.size : 0,
+    mime: typeof parsed.mime === "string" ? parsed.mime : "application/octet-stream",
     visibility: "public",
     payload,
   }
@@ -157,20 +176,6 @@ function render(desc) {
   renderQR()
 }
 
-function updateProgress(received, total) {
-  progressWrap.hidden = false
-  if (total > 0) {
-    const percent = Math.max(0, Math.min(100, Math.round((received / total) * 100)))
-    progressBar.style.width = `${percent}%`
-    progressPercent.textContent = `${percent}%`
-    progressLabel.textContent = `${formatBytes(received)} of ${formatBytes(total)}`
-  } else {
-    progressBar.style.width = "30%"
-    progressPercent.textContent = ""
-    progressLabel.textContent = `${formatBytes(received)} downloaded`
-  }
-}
-
 async function copyText(value, button) {
   await navigator.clipboard.writeText(value)
   const old = button.textContent
@@ -213,7 +218,6 @@ function renderOrigins() {
     const select = document.createElement("button")
     select.type = "button"
     select.className = "origin-select"
-    select.disabled = item.status !== "ready" || isDownloading
     select.addEventListener("click", () => {
       selectedOrigin = item.origin
       manualOriginSelection = true
@@ -263,7 +267,7 @@ function renderOrigins() {
     } else if (item.status === "ready") {
       status.textContent = `${item.latency} ms`
     } else {
-      status.textContent = "Unavailable"
+      status.textContent = "Not verified"
     }
     health.appendChild(status)
 
@@ -275,10 +279,9 @@ function renderOrigins() {
     copyButton.type = "button"
     copyButton.className = "origin-copy"
     copyButton.textContent = "Copy link"
-    copyButton.disabled = item.status !== "ready"
     copyButton.addEventListener("click", () => {
       if (!descriptor) return
-      copyText(gatewayURL(item.origin, descriptor.cid), copyButton)
+      copyText(gatewayDownloadURL(item.origin, descriptor), copyButton)
     })
 
     row.appendChild(select)
@@ -297,8 +300,8 @@ function updateOriginSummary() {
   }
 
   if (ready.length === 0) {
-    originSummary.textContent = "No browser-compatible gateway returned this CID. Retry in a moment."
-    availabilityText.textContent = "No public gateway currently found the file"
+    originSummary.textContent = "No gateway was verified. Some gateways block browser checks but still support downloads."
+    availabilityText.textContent = "Gateway checks inconclusive. Try a direct download or select another route."
     return
   }
 
@@ -310,22 +313,12 @@ function updateOriginSummary() {
 }
 
 function updateDownloadReadiness() {
-  const selected = gatewayStates.find(
-    (item) => item.origin === selectedOrigin && item.status === "ready",
-  )
-
-  if (isDownloading) {
-    downloadButton.disabled = true
-    return
-  }
-
-  if (selected) {
-    downloadButton.disabled = false
-    downloadLabel.textContent = `Download via ${gatewayLabel(selected.origin)}`
-  } else {
-    downloadButton.disabled = true
-    downloadLabel.textContent = "Finding download route…"
-  }
+  const selected = gatewayStates.find((item) => item.origin === selectedOrigin)
+  const route = selected || gatewayStates.find((item) => item.status === "ready") || gatewayStates[0]
+  downloadButton.disabled = !route
+  downloadLabel.textContent = route
+    ? `Download via ${gatewayLabel(route.origin)}`
+    : "Finding download route…"
 }
 
 async function probeGateway(origin, cid, signal) {
@@ -363,7 +356,7 @@ async function probeGateway(origin, cid, signal) {
 }
 
 async function refreshOrigins() {
-  if (!descriptor || isDownloading) return
+  if (!descriptor) return
 
   const generation = ++probeGeneration
   refreshOriginsButton.disabled = true
@@ -383,6 +376,7 @@ async function refreshOrigins() {
 
   renderOrigins()
   updateOriginSummary()
+  updateDownloadReadiness()
 
   const groupController = new AbortController()
 
@@ -403,7 +397,7 @@ async function refreshOrigins() {
         const ready = gatewayStates
           .filter((candidate) => candidate.status === "ready")
           .sort((a, b) => a.latency - b.latency)
-        selectedOrigin = ready[0]?.origin || ""
+        selectedOrigin = ready[0]?.origin || gatewayStates[0]?.origin || ""
       }
 
       renderOrigins()
@@ -418,8 +412,8 @@ async function refreshOrigins() {
     .filter((item) => item.status === "ready")
     .sort((a, b) => a.latency - b.latency)
 
-  if (!manualOriginSelection || !ready.some((item) => item.origin === selectedOrigin)) {
-    selectedOrigin = ready[0]?.origin || ""
+  if (!manualOriginSelection || !gatewayStates.some((item) => item.origin === selectedOrigin)) {
+    selectedOrigin = ready[0]?.origin || gatewayStates[0]?.origin || ""
   }
 
   renderOrigins()
@@ -428,123 +422,76 @@ async function refreshOrigins() {
   refreshOriginsButton.disabled = false
 }
 
-async function fetchFromGateway(origin, desc) {
-  const controller = new AbortController()
-  const connectTimeout = window.setTimeout(() => controller.abort(), 15000)
-
-  let response
-  try {
-    response = await fetch(gatewayURL(origin, desc.cid), {
-      method: "GET",
-      mode: "cors",
-      redirect: "follow",
-      headers: { Accept: "application/octet-stream" },
-      signal: controller.signal,
-    })
-  } finally {
-    clearTimeout(connectTimeout)
-  }
-
-  if (!response.ok || !response.body) {
-    throw new Error(`HTTP ${response.status}`)
-  }
-
-  const headerLength = Number(response.headers.get("content-length")) || 0
-  const total = desc.size || headerLength
-  const reader = response.body.getReader()
-  const chunks = []
-  let received = 0
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-    received += value.byteLength
-    updateProgress(received, total)
-  }
-
-  return new Blob(chunks, { type: desc.mime })
+function gatewayDownloadURL(origin, desc) {
+  const url = new URL(gatewayURL(origin, desc.cid))
+  url.searchParams.set("download", "true")
+  url.searchParams.set("filename", desc.name)
+  return url.toString()
 }
 
-function saveBlob(blob, name) {
-  const objectURL = URL.createObjectURL(blob)
-  const anchor = document.createElement("a")
-  anchor.href = objectURL
-  anchor.download = name
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  setTimeout(() => URL.revokeObjectURL(objectURL), 10000)
-}
+function download() {
+  if (!descriptor) return
+  const selected = gatewayStates.find((item) => item.origin === selectedOrigin)
+  const route = selected || gatewayStates.find((item) => item.status === "ready") || gatewayStates[0]
 
-async function download() {
-  if (!descriptor || isDownloading) return
-
-  const ready = gatewayStates
-    .filter((item) => item.status === "ready")
-    .sort((a, b) => a.latency - b.latency)
-
-  if (ready.length === 0) {
-    await refreshOrigins()
+  if (!route) {
+    refreshOrigins()
     return
   }
 
-  const selected = ready.find((item) => item.origin === selectedOrigin)
-  const candidates = [
-    ...(selected ? [selected] : []),
-    ...ready.filter((item) => item.origin !== selectedOrigin),
-  ]
+  // Browser streams from the IPFS gateway. No CDN proxy and no memory buffering.
+  const link = document.createElement("a")
+  link.href = gatewayDownloadURL(route.origin, descriptor)
+  link.target = "_blank"
+  link.rel = "noopener noreferrer"
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
 
-  isDownloading = true
-  refreshOriginsButton.disabled = true
-  renderOrigins()
-  updateDownloadReadiness()
-  progressWrap.hidden = false
-  progressPercent.textContent = ""
-  progressBar.style.width = "4%"
+  availabilityText.textContent =
+    `Download opened via ${gatewayHostname(route.origin)}. Your browser handles progress and saving. ` +
+    "If the gateway cannot serve this CID, select another route and retry."
+}
 
-  let lastError = null
+openFileForm.addEventListener("submit", (event) => {
+  event.preventDefault()
+  const input = openFileInput.value.trim()
+  if (validCID(input)) {
+    location.assign(`${location.pathname}?cid=${encodeURIComponent(input)}`)
+    return
+  }
 
-  for (const candidate of candidates) {
-    selectedOrigin = candidate.origin
-    renderOrigins()
-    downloadLabel.textContent = `Downloading via ${gatewayLabel(candidate.origin)}…`
-    progressLabel.textContent = `Connecting to ${gatewayHostname(candidate.origin)}…`
-    progressPercent.textContent = ""
-    progressBar.style.width = "4%"
-
+  let payload = ""
+  if (input.startsWith("x13file://share/") || input.startsWith("13xfile://share/")) {
+    payload = input.split("/share/")[1] || ""
+  } else {
     try {
-      const blob = await fetchFromGateway(candidate.origin, descriptor)
-      saveBlob(blob, descriptor.name)
-
-      progressBar.style.width = "100%"
-      progressPercent.textContent = "100%"
-      progressLabel.textContent = `Downloaded via ${gatewayLabel(candidate.origin)}`
-      availabilityText.textContent = `Served by ${gatewayHostname(candidate.origin)}`
-      isDownloading = false
-      refreshOriginsButton.disabled = false
-      renderOrigins()
-      updateDownloadReadiness()
+      const url = new URL(input)
+      if (
+        url.origin !== location.origin &&
+        url.hostname !== "share.13xfile.app" &&
+        url.hostname !== "htmlpreview.github.io"
+      ) throw new Error("Unsupported share link host")
+      payload = url.hash.replace(/^#/, "")
+      if (!payload && validCID(url.searchParams.get("cid") || "")) {
+        location.assign(`${location.pathname}?cid=${encodeURIComponent(url.searchParams.get("cid"))}`)
+        return
+      }
+    } catch {
+      showError("Invalid link", "Enter a public 13xfile share link or a valid IPFS CID.")
       return
-    } catch (error) {
-      lastError = error
-      candidate.status = "unavailable"
-      candidate.latency = 0
-      renderOrigins()
-      updateOriginSummary()
     }
   }
 
-  selectedOrigin = ""
-  isDownloading = false
-  refreshOriginsButton.disabled = false
-  progressBar.style.width = "0%"
-  progressPercent.textContent = ""
-  progressLabel.textContent = "All currently available gateways failed during download."
-  availabilityText.textContent = "Public gateways are temporarily unavailable"
-  renderOrigins()
-  updateDownloadReadiness()
-  console.warn("13xfile public download failed", lastError)
+  if (!payload || !/^[A-Za-z0-9_-]{1,8192}$/.test(payload)) {
+    showError("Invalid link", "This share link does not contain a valid descriptor.")
+    return
+  }
+  location.assign(`${location.pathname}#${payload}`)
+})
+
+if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+  document.querySelector(".browse-feed-link").href = "http://127.0.0.1:8081/"
 }
 
 try {
@@ -552,8 +499,9 @@ try {
   render(descriptor)
   refreshOrigins()
 } catch (error) {
+  const noFileSelected = !location.hash && !new URLSearchParams(location.search).has("cid")
   showError(
-    "Invalid share link",
+    noFileSelected ? "Open a public file" : "Invalid share link",
     error instanceof Error ? error.message : "This link could not be opened.",
   )
 }

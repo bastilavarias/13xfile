@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -59,9 +61,24 @@ func (e *DesktopEngine) shareLinks(file VaultFile) (string, string, error) {
 	appLink := appSharePrefix + payload
 	webLink := ""
 	if desc.Visibility == "public" {
-		webLink = publicWebShareBase + "#" + payload
+		webLink = publicWebShareURL() + "#" + payload
 	}
 	return appLink, webLink, nil
+}
+
+func publicWebShareURL() string {
+	configured := strings.TrimSpace(os.Getenv("WEB_SHARE_BASE_URL"))
+	if configured == "" {
+		return publicWebShareBase
+	}
+	parsed, err := url.Parse(configured)
+	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return publicWebShareBase
+	}
+	if parsed.Scheme != "https" && !(parsed.Scheme == "http" && (parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1")) {
+		return publicWebShareBase
+	}
+	return strings.TrimRight(configured, "/")
 }
 
 func parseShareLink(value string) (ShareDescriptor, error) {

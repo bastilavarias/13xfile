@@ -17,3 +17,14 @@ h1,h2,p{margin-top:0}h1{max-width:100%;margin-bottom:9px;overflow-wrap:anywhere;
 .error-card{width:min(100%,520px);margin:80px auto;padding:38px;text-align:center}.error-icon{width:48px;height:48px;margin:0 auto 16px;display:grid;place-items:center;border-radius:14px;background:rgba(239,100,100,.1);color:var(--danger);font-size:22px;font-weight:600}.error-card p{color:var(--muted);font-size:11px;line-height:1.7}
 @media(max-width:850px){.site-header-inner{width:min(100% - 24px,1120px);min-height:78px}.brand img{width:170px}.brand-copy{display:none}.page-shell{width:min(100% - 24px,1120px);padding-top:16px}.file-grid{grid-template-columns:1fr}.qr-panel{min-height:0}.link-row{grid-template-columns:1fr auto}.link-row-label{grid-column:1/-1}.feature-strip{grid-template-columns:1fr}.feature-strip article{min-height:82px;border-left:0;border-top:1px solid var(--border)}.feature-strip article:first-child{border-top:0}}
 @media(max-width:560px){.theme-toggle #theme-label{display:none}.file-grid,.gateway-card{padding:16px}.file-heading{align-items:flex-start}.file-icon{width:70px;height:86px}.file-icon svg{width:31px;height:31px}.download-button{grid-template-columns:28px minmax(0,1fr)}.download-size{display:none}.origin-select{grid-template-columns:18px minmax(0,1fr)}.origin-health{grid-column:2}.link-row{grid-template-columns:1fr auto}.link-row input{grid-column:1}}
+
+/* Public-link opener and keyboard accessibility. */
+.open-file-form{margin-top:22px;text-align:left}
+.open-file-form label{display:block;margin-bottom:8px;color:var(--muted);font-size:12px}
+.open-file-fields{display:flex;gap:8px}
+.open-file-fields input{min-width:0;flex:1;min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:9px;background:var(--s2);color:var(--text);font-size:13px}
+.open-file-fields button{min-height:44px;padding:0 17px;border:1px solid var(--border2);border-radius:9px;background:var(--primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer}
+.browse-feed-link{display:inline-block;margin-top:20px;color:var(--primary);font-size:12px;text-decoration:underline;text-underline-offset:4px}
+button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--primary);outline-offset:3px}
+@media(max-width:560px){.open-file-fields{flex-direction:column}.open-file-fields button{width:100%}}
+@media(prefers-reduced-motion:reduce){.download-button{transition:none}}

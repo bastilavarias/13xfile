@@ -20,6 +20,8 @@ The public feed provides searchable discovery for files explicitly published fro
 | --- | --- |
 | ![13xfile public feed](docs/images/feed-page.PNG) | ![13xfile public share page](docs/images/share-page.PNG) |
 
+Deployment preparation for the three static websites: [Netlify deployment guide](docs/NETLIFY_DEPLOYMENT.md). Browser downloads go directly to IPFS gateways; the Go feed API is deployed separately.
+
 ## MVP layout
 
 ```text

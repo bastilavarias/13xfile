@@ -1,0 +1,3 @@
+# Set Netlify base directory to "web" for this site.
+[build]
+  publish = "."

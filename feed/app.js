@@ -1,4 +1,9 @@
 const config = window.ThirteenXFeedConfig || {};
+if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+  document.querySelectorAll("[data-share-link]").forEach((link) => {
+    link.href = "http://127.0.0.1:8082/";
+  });
+}
 const apiBase = String(config.apiBase || "").replace(/\/$/, "");
 const shareBase = String(config.shareBase || "https://share.13xfile.app/").replace(/\/$/, "");
 const gateways = Array.isArray(config.gateways) && config.gateways.length ? config.gateways : ["https://dweb.link"];

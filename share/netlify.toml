@@ -1,0 +1,3 @@
+# Set Netlify base directory to "share" for this site.
+[build]
+  publish = "."

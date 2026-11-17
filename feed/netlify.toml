@@ -1,0 +1,3 @@
+# Set Netlify base directory to "feed" for this site.
+[build]
+  publish = "."
