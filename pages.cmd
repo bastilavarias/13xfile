@@ -13,13 +13,12 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Starting 13xfile local web stack with Docker...
+echo Starting 13xfile local website and share page with Docker...
 echo.
 echo   Main   http://127.0.0.1:8080/
-echo   Feed   http://127.0.0.1:8081/
 echo   Share  http://127.0.0.1:8082/
-echo   API    http://127.0.0.1:8090/health
 echo.
+echo Feed services are paused. Run docker compose --profile feed up --build to enable them for development.
 echo Press Ctrl+C to stop the stack.
 echo.
 

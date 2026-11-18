@@ -1,18 +1,17 @@
 # 13xfile static web deployment (Netlify)
 
-The `web/`, `feed/`, and `share/` folders are **three independent static sites**. Do not combine them or upload game files to Netlify. File bytes stay on IPFS; the browser downloads directly from an external IPFS gateway. The Go feed API and Kubo storage peer run separately and must not be exposed as an unrestricted Netlify proxy.
+For this launch, deploy **only** `web/` and `share/` as independent static sites. The `feed/` frontend and `api/` are paused and remain in the repository for later. Do not combine the sites or upload game files to Netlify. File bytes stay on IPFS; the browser downloads directly from an external IPFS gateway. The Go feed API and Kubo storage peer run separately and must not be exposed as an unrestricted Netlify proxy.
 
-## Create three Netlify sites
+## Create two Netlify sites
 
-Connect the same GitHub repository, `bastilavarias/13xfile`, three times. Use these build settings for each new Netlify site:
+Connect the same GitHub repository, `bastilavarias/13xfile`, twice. Use these build settings for each new Netlify site:
 
 | Site | Base directory | Publish directory | Build command | Custom domain |
 | --- | --- | --- | --- | --- |
 | Product | `web` | `.` | leave empty | `13xfile.app` |
-| Public feed | `feed` | `.` | leave empty | `feed.13xfile.app` |
 | Download/share | `share` | `.` | leave empty | `share.13xfile.app` |
 
-The `netlify.toml` and `_headers` files in each directory provide site-specific static configuration. Keep each site's base directory set to its own folder. Deploy branch: `main`; set up DNS/custom domains and HTTPS inside Netlify after preview testing. Do not claim these domains are live before the DNS and TLS checks succeed.
+The `netlify.toml` and `_headers` files in each directory provide site-specific static configuration. Keep each site's base directory set to its own folder. **Do not deploy `feed/` or `api/` for now.** Deploy branch: `main`; set up DNS/custom domains and HTTPS inside Netlify after preview testing. Do not claim these domains are live before the DNS and TLS checks succeed.
 
 No Netlify Functions, rewrites to gateways, edge proxies, blob storage, or game archive files are needed. **Do not use a `200` rewrite from `/download` to an IPFS gateway:** the large response would transit Netlify and consume its bandwidth credits. Direct browser navigation to `https://<gateway>/ipfs/<CID>?download=true&filename=<name>` bypasses Netlify file-transfer bandwidth.
 
@@ -20,7 +19,7 @@ No Netlify Functions, rewrites to gateways, edge proxies, blob storage, or game 
 
 1. `web/` can go live as a static product website.
 2. `share/` can go live as a static, CID-driven download page. Visitors can paste a public 13xfile share link or CID when visiting its root URL. Existing desktop share-descriptor links also work.
-3. `feed/` is static, but dynamic listings require the separate `api.13xfile.app` feed API or a configured IPNS fallback. It displays an unavailable state until one is reachable.
+3. The feed is intentionally off: it is not linked from the public website, and desktop **Share to feed** publishing is disabled. Revisit the API security requirements before a later rollout.
 
 The static share page does not authenticate readers: treat every public CID and descriptor as public. Private/encrypted files remain app-to-app only.
 
@@ -31,6 +30,10 @@ Both development builds and production builds now default to `https://share.13xf
 The optional `WEB_SHARE_BASE_URL` environment variable remains available for an explicit override (for example, `WEB_SHARE_BASE_URL=http://127.0.0.1:8082` when testing an isolated local share page). Without an override, **local desktop development still points to Netlify**.
 
 Deploy `share/` and verify its custom domain and HTTPS before distributing the desktop app update. Until DNS and TLS are live, newly generated public links cannot resolve.
+
+## Feed remains paused
+
+The default Docker Compose stack starts only `web` and `share`. The optional `feed`, `api`, and `ipfs` services are grouped under the `feed` profile for future development (`docker compose --profile feed up --build`). Existing Docker volumes remain untouched. No Netlify feed site is needed for this launch.
 
 ## Feed API deployment is a separate phase
 

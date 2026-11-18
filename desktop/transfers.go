@@ -18,6 +18,10 @@ import (
 	"time"
 )
 
+// Feed publishing is paused for the initial website and share-page launch.
+// Preserve the protocol and index code for a future opt-in rollout.
+const feedPublishingEnabled = false
+
 type transferJob struct {
 	ID          string `json:"id"`
 	Path        string `json:"path"`
@@ -200,7 +204,7 @@ func (m *TransferManager) QueuePaths(paths []string, visibility string, staged b
 	if visibility != "public" && visibility != "private" {
 		return nil, errors.New("visibility must be public or private")
 	}
-	if visibility != "public" {
+	if visibility != "public" || !feedPublishingEnabled {
 		shareToFeed = false
 	}
 	var added []Transfer
@@ -543,7 +547,7 @@ func (m *TransferManager) process(job transferJob) {
 		return
 	}
 
-	if job.ShareToFeed && job.Visibility == "public" {
+	if feedPublishingEnabled && job.ShareToFeed && job.Visibility == "public" {
 		m.update(job.ID, "running", "Publishing to feed", 94, "")
 		_, result, feedErr := m.engine.publishFeedEntry(ctx, VaultFile{
 			ID:         fileID,

@@ -491,7 +491,7 @@ openFileForm.addEventListener("submit", (event) => {
 })
 
 if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-  document.querySelector(".browse-feed-link").href = "http://127.0.0.1:8081/"
+  document.querySelector(".browse-feed-link").href = "http://127.0.0.1:8080/"
 }
 
 try {

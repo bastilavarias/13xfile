@@ -80,9 +80,11 @@ Encrypted web sharing is deliberately not part of this MVP. Encrypted app links 
 
 `13xfile://share/...` links from the prototype remain accepted for backward compatibility, but `x13file://` is the canonical OS-registerable scheme because URI schemes cannot start with a digit.
 
-### Share to feed
+### Share to feed (temporarily disabled)
 
-Public uploads can optionally enable **Share to feed**. The desktop then creates an immutable `13xfile.feed.entry` metadata object, pins that JSON through its own IPFS node, and submits only the metadata CID plus its projection to the separate feed API.
+Feed publishing is paused for this launch. The desktop no longer offers **Share to feed**, and the transfer backend ignores stale requests asking to publish, even from older clients. The code remains available for a future release.
+
+When re-enabled, public uploads can optionally enable **Share to feed**. The desktop then creates an immutable `13xfile.feed.entry` metadata object, pins that JSON through its own IPFS node, and submits only the metadata CID plus its projection to the separate feed API.
 
 The file upload still succeeds if feed publication fails. Configure a non-production feed API during development with:
 

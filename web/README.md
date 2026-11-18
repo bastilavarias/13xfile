@@ -8,4 +8,4 @@ Standalone static product site intended for:
 
 This folder contains only the main product/marketing website.
 
-The public file feed lives in `/feed`, the share viewer lives in `/share`, and the feed indexing service lives in `/api`.
+The public file feed lives in `/feed`, the share viewer lives in `/share`, and the feed indexing service lives in `/api`. The feed and its API are intentionally paused and should not be deployed in this phase.

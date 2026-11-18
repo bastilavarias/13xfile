@@ -10,6 +10,7 @@ services:
     restart: unless-stopped
 
   feed:
+    profiles: ["feed"]
     build:
       context: .
       dockerfile: feed/Dockerfile
@@ -26,6 +27,7 @@ services:
     restart: unless-stopped
 
   ipfs:
+    profiles: ["feed"]
     image: ipfs/kubo:v0.43.1
     volumes:
       - feed-ipfs:/data/ipfs
@@ -37,6 +39,7 @@ services:
     restart: unless-stopped
 
   api:
+    profiles: ["feed"]
     build:
       context: .
       dockerfile: api/Dockerfile

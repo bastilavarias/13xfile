@@ -6,7 +6,7 @@
 
 ### Desktop
 
-The desktop client supports public and encrypted uploads, optional **Share to feed** publishing, IPFS replication status, transfer tracking, browser sharing, and local-first vault management.
+The desktop client supports public and encrypted uploads, IPFS replication status, transfer tracking, browser sharing, and local-first vault management. **Share to feed is temporarily disabled.**
 
 | Light theme | Dark theme |
 | --- | --- |
@@ -14,13 +14,13 @@ The desktop client supports public and encrypted uploads, optional **Share to fe
 
 ### Feed and public sharing
 
-The public feed provides searchable discovery for files explicitly published from the desktop app, while the share page gives public files a browser-friendly download experience.
+The share page provides direct browser downloads from IPFS. The public feed is paused for this launch; its existing interface and code are retained for a future rollout.
 
-| Public feed | Share page |
+| Feed preview (paused) | Share page |
 | --- | --- |
 | ![13xfile public feed](docs/images/feed-page.PNG) | ![13xfile public share page](docs/images/share-page.PNG) |
 
-Deployment preparation for the three static websites: [Netlify deployment guide](docs/NETLIFY_DEPLOYMENT.md). Browser downloads go directly to IPFS gateways; the Go feed API is deployed separately.
+Deployment preparation for the main website and share page: [Netlify deployment guide](docs/NETLIFY_DEPLOYMENT.md). Browser downloads go directly to IPFS gateways; the feed/API are not part of this launch.
 
 ## MVP layout
 
@@ -83,13 +83,13 @@ The Wails desktop client owns its own node and Kubo runtime. Current features in
 - selectable independent public-IPFS download mirrors
 - `x13file://` app-share deep-link support
 - legacy `13xfile://` link parsing
-- optional “Share to feed” metadata publishing through the separate feed index API
+- feed metadata publishing code retained for later (currently disabled)
 
 See `desktop/README.md`.
 
 ### Local testing / development
 
-13xfile is currently intended to be tested locally. The product site, public feed, share page, feed API, and feed-side Kubo node run in Docker; the desktop client runs natively on the host OS.
+13xfile is currently intended to be tested locally. The default Docker stack starts the product website and share page only; the paused public feed, API, and feed-side Kubo node require the optional `feed` profile. The desktop client runs natively on the host OS.
 
 #### Requirements
 
@@ -129,7 +129,7 @@ git clone https://github.com/bastilavarias/13xfile.git
 cd 13xfile
 ```
 
-#### 2. Start the local web/feed stack
+#### 2. Start the local website and share page
 
 **Windows:**
 
@@ -149,13 +149,10 @@ The stack exposes:
 
 ```text
 Main      http://127.0.0.1:8080/
-Feed      http://127.0.0.1:8081/
 Share     http://127.0.0.1:8082/
-Feed API  http://127.0.0.1:8090/health
-IPFS      internal Docker service
 ```
 
-The feed API keeps its SQLite index and feed-side Kubo repository in Docker named volumes, so local feed data survives normal container recreation.
+The feed, API, and feed-side Kubo node are disabled in the default Docker Compose profile. To restore their local development stack later, use `docker compose --profile feed up --build`. Existing feed volumes are preserved.
 
 #### 3. Run the desktop client
 
@@ -167,13 +164,12 @@ Open a second terminal while the Docker stack is still running.
 .\\dev.cmd -NoPull
 ```
 
-The helper rebuilds the desktop frontend and launches the current checkout with the local feed API configured automatically.
+The helper rebuilds the desktop frontend and launches the current checkout. Feed publishing stays disabled.
 
 To run it manually from PowerShell instead:
 
 ```powershell
 cd desktop
-$env:FEED_API_URL="http://127.0.0.1:8090"
 go run .
 ```
 
@@ -181,7 +177,6 @@ From Windows Command Prompt (`cmd.exe`):
 
 ```cmd
 cd desktop
-set FEED_API_URL=http://127.0.0.1:8090
 go run .
 ```
 
@@ -189,7 +184,6 @@ go run .
 
 ```bash
 xcode-select --install   # only needed once
-export FEED_API_URL=http://127.0.0.1:8090
 cd desktop
 go run .
 ```
@@ -197,7 +191,6 @@ go run .
 **Linux (GTK4 / WebKitGTK 6.0):**
 
 ```bash
-export FEED_API_URL=http://127.0.0.1:8090
 cd desktop
 go run .
 ```
@@ -205,23 +198,21 @@ go run .
 For the legacy GTK3 / WebKit2GTK 4.1 setup described above:
 
 ```bash
-export FEED_API_URL=http://127.0.0.1:8090
 cd desktop
 go run -tags gtk3 .
 ```
 
 The first desktop launch bootstraps its own managed Kubo runtime under `~/.13xfile-desktop`. A separately installed IPFS daemon is not required.
 
-#### 4. Test the feed flow
+#### 4. Test public browser sharing
 
 In the desktop app:
 
-1. keep the upload visibility set to **Public**;
-2. enable **Share to feed**;
-3. upload a file;
-4. open `http://127.0.0.1:8081/` and refresh the feed.
+1. Select **Public** and upload a file.
+2. Create a public web share link.
+3. Open the link on the hosted `share.13xfile.app` page when deployed, or set `WEB_SHARE_BASE_URL=http://127.0.0.1:8082` explicitly for local testing.
 
-The file bytes stay on IPFS. The local feed API stores the searchable projection, while feed metadata and manifest history are also published through the Dockerized IPFS/IPNS path.
+`Share to feed` is paused. The upload remains on IPFS and does not require the feed index.
 
 #### Stop or reset the local stack
 
@@ -231,11 +222,7 @@ Stop attached containers with `Ctrl+C`, then clean up containers/networks with:
 docker compose down
 ```
 
-To also erase the local feed database and feed-side IPFS repository:
-
-```bash
-docker compose down -v
-```
+Do not use `docker compose down -v` for routine cleanup: it would delete stored feed/index data, even while the feed is paused.
 
 #### Pull latest changes
 

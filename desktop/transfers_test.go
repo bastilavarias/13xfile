@@ -8,6 +8,36 @@ import (
 	"time"
 )
 
+func TestTransferQueueIgnoresFeedPublishingWhilePaused(t *testing.T) {
+	home := t.TempDir()
+	source := filepath.Join(home, "public-file.zip")
+	if err := os.WriteFile(source, []byte("test archive"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	engine := &DesktopEngine{home: home}
+	manager := newTransferManager(context.Background(), engine, 1)
+	engine.transfers = manager
+
+	items, err := manager.QueuePaths([]string{source}, "public", false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 queued item, got %d", len(items))
+	}
+	if items[0].ShareToFeed {
+		t.Fatal("feed publishing must be disabled for the public transfer")
+	}
+	if manager.jobs[items[0].ID].ShareToFeed {
+		t.Fatal("feed publishing was still enabled in the queued job")
+	}
+
+	restored := newTransferManager(context.Background(), engine, 1)
+	if restored.jobs[items[0].ID].ShareToFeed {
+		t.Fatal("feed publishing was persisted in the journal")
+	}
+}
+
 func TestTransferRemoveDeletesTerminalEntry(t *testing.T) {
 	home := t.TempDir()
 	sourceDir := filepath.Join(home, "staging", "tx-remove")
