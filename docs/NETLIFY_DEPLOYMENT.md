@@ -24,15 +24,13 @@ No Netlify Functions, rewrites to gateways, edge proxies, blob storage, or game 
 
 The static share page does not authenticate readers: treat every public CID and descriptor as public. Private/encrypted files remain app-to-app only.
 
-## Switch desktop-created share links after deployment
+## Desktop-created share links
 
-The desktop currently defaults to the old HTML preview link for compatibility while the real share domain is not yet online. Once `https://share.13xfile.app/` is tested, start the desktop with:
+Both development builds and production builds now default to `https://share.13xfile.app`. No environment variable is required: newly generated public web share links use this domain automatically.
 
-```bash
-WEB_SHARE_BASE_URL=https://share.13xfile.app
-```
+The optional `WEB_SHARE_BASE_URL` environment variable remains available for an explicit override (for example, `WEB_SHARE_BASE_URL=http://127.0.0.1:8082` when testing an isolated local share page). Without an override, **local desktop development still points to Netlify**.
 
-(or set the equivalent environment variable on Windows before launching the app). New public web links then use the official share domain. For local testing, use `WEB_SHARE_BASE_URL=http://127.0.0.1:8082`. The default remains unchanged until rollout is verified.
+Deploy `share/` and verify its custom domain and HTTPS before distributing the desktop app update. Until DNS and TLS are live, newly generated public links cannot resolve.
 
 ## Feed API deployment is a separate phase
 

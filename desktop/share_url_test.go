@@ -6,7 +6,7 @@ func TestPublicWebShareURL(t *testing.T) {
 	cases := []struct {
 		name, setting, want string
 	}{
-		{"default", "", publicWebShareBase},
+		{"default", "", "https://share.13xfile.app"},
 		{"production", "https://share.13xfile.app/", "https://share.13xfile.app"},
 		{"local", "http://127.0.0.1:8082/", "http://127.0.0.1:8082"},
 		{"reject insecure remote", "http://example.com", publicWebShareBase},
